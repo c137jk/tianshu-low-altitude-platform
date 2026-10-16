@@ -1,0 +1,11 @@
+# 环境变量（含密钥与数据库密码，绝不提交）
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+instance/
+*.log

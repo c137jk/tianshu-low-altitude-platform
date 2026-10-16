@@ -1,0 +1,45 @@
+/* 全局基础样式（D-28：紧凑密度、系统字体、数字等宽） */
+* { box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 14px;
+  color: var(--ts-text);
+  background: var(--ts-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 坐标/电量/金额等数字等宽对齐 */
+.num {
+  font-family: 'SF Mono', 'Consolas', 'Roboto Mono', Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+a { color: var(--ts-primary); text-decoration: none; }
+
+/* 细滚动条（藏青系） */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #C7C2B4; border-radius: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 通用卡片 */
+.ts-card {
+  background: var(--ts-card);
+  border: 1px solid var(--ts-border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+/* 地图实时飞机标记脉冲（调度地图） */
+@keyframes ts-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, .55); }
+  70% { box-shadow: 0 0 0 12px rgba(192, 57, 43, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); }
+}

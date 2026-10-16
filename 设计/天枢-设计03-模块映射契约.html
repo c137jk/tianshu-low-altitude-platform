@@ -1,0 +1,241 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:22px 24px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#1A1B1C;background:#fff;font-size:14px;line-height:1.55;">
+
+  <div style="border-left:5px solid #4F6B9A;padding-left:12px;margin-bottom:14px;">
+    <div style="font-size:20px;font-weight:700;color:#27395c;">天枢平台 — 前端模块 ↔ Flask 领域 ↔ 数据表 ↔ API 映射契约（设计稿 v0.3）</div>
+    <div style="font-size:12.5px;color:#5F6670;margin-top:4px;">用途：两人前后端并行开发的唯一接口契约基线；API 为代表清单（非全量），最终以 Swagger 为准 · ● P0 主干　○ P1/P2 分批</div>
+  </div>
+
+  <!-- ========== A 分层架构 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:18px 0 10px;">A. 总体分层架构</div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div style="border:1px solid #c7d3e8;background:#f4f7fc;border-radius:6px;padding:10px 14px;">
+      <b>接入层</b>　PC Web：Vue3 + TS + Vite + Element Plus + 高德 JS API　｜　移动端：UniApp + uView + 高德 SDK（客户/机长/运维/移动管理员）
+    </div>
+    <div style="text-align:center;color:#5F6670;font-size:12.5px;">↓ HTTPS · REST/JSON（请求头 <code>Device-Type: PC|Mobile</code>）＋ WebSocket 实时通道 ↓</div>
+    <div style="border:1px solid #c7d3e8;background:#f4f7fc;border-radius:6px;padding:10px 14px;">
+      <b>应用层 · Flask 九大领域蓝图</b>（模块化单体）：D1 认证账号 · D2 订单 · D3 调度/飞行任务 · D4 低空资源 · D5 空域合规 · D6 监控仿真 · D7 应急客服 · D8 统计报表 · D9 系统配置
+    </div>
+    <div style="border:1px solid #d8dde6;background:#F7F7F5;border-radius:6px;padding:10px 14px;font-size:13px;">
+      <b>横切支撑</b>：JWT/RBAC 装饰器 · 统一响应与全局异常 · APScheduler 定时任务 · Flask-SocketIO · 操作日志切面 · 参数校验(marshmallow) · PC/移动双 Schema 裁剪
+    </div>
+    <div style="border:1px solid #d8dde6;background:#F7F7F5;border-radius:6px;padding:10px 14px;font-size:13px;">
+      <b>数据层</b>：MySQL 8（业务库；flight_track 轨迹按月 RANGE 分区）＋ Redis（Token、设备在线心跳、空域缓存、WS 广播）
+    </div>
+    <div style="border:1px dashed #9A6A2F;background:#fbf6ec;border-radius:6px;padding:10px 14px;font-size:13px;color:#6b4a1f;">
+      <b>外部 Mock 适配层（全部假实现，预留真接口）</b>：UTM 空管（预置空域）· 气象（10 分钟刷新假数据）· 支付（不真扣款直接回调成功）· GCS 无人机（仿真器顶替，MQTT 协议预留）
+    </div>
+  </div>
+
+  <!-- ========== B 九大领域映射 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 4px;">B. Flask 九大领域 × 数据表 × 代表 API</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:10px;">统一前缀 <code>/api</code>；分页统一 pageNum/pageSize；● 为 P0 必做领域</div>
+
+  <!-- D1 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D1 认证与账号域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.1 账号与权限（双端全角色）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>user、merchant、customer_profile、role、permission、user_role、role_permission、qualification</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>POST /auth/login（发 JWT：PC 8h/移动 2h）· POST /auth/register · POST /auth/refresh · GET /users/me · GET /admin/users · PUT /admin/users/{id}/status（冻结/解冻）· POST /merchants/apply · PUT /admin/merchants/{id}/audit · /roles、/permissions（RBAC 树）· /qualifications（到期预警）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>双端共用；PC 多批量导入导出与审核台，移动端只看/改本人信息</div>
+    </div>
+  </div>
+
+  <!-- D2 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D2 订单域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.2 订单创建/列表/结算（客户、商家、管理员）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>orders、address_book、settlement、payment_transaction、invoice○、evaluation_complaint○</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>POST /orders/estimate（空域校验+费用试算）· POST /orders（含 /orders/batch 批量导入、预约下单）· GET /orders（多条件分页/导出）· GET /orders/{id} · POST /orders/{id}/accept|reject|cancel · POST /orders/{id}/pay（Mock 支付）· POST /settlements/reconcile（对账）· /invoices○、/orders/{id}/evaluations○</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>PC 全量字段+批量操作；移动端三步快速下单、精简列表</div>
+    </div>
+  </div>
+
+  <!-- D3 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D3 调度与飞行任务域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.2 调度页 + 4.2.4 计划申报/审批（状态机唯一入口）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>flight_plan（含调度方案：人机场+航线，与订单 1:1）、approval_record；读取 aircraft/vertiport/airspace</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>POST /dispatch/recommend（自动匹配人机场+路径规划+合规预检）· POST /flight-plans（建方案/草稿）· POST /flight-plans/{id}/submit · /approve|reject（PC 支持 /batch-approve）· /assign（下发机长）· /takeoff|land（机长确认起降）· GET /flight-plans（待办/已办）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>审批为 PC 专属；移动端机长仅看本人任务并做执行态流转</div>
+    </div>
+  </div>
+
+  <!-- D4 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D4 低空资源域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.3 人-机-场（飞行器/场站 P0，排班维保 ○）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>aircraft、vertiport、maintenance_record○、staff_schedule○、station_reservation○</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>/aircraft CRUD + /aircraft/{id}/health（健康度）· /vertiports CRUD + 预约 · /maintenances（维保故障）· /staff（机长运维档案资质）· /schedules（日历排班与冲突检测）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>PC 管台账与排班；移动端只看负责设备、故障快速上报</div>
+    </div>
+  </div>
+
+  <!-- D5 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D5 空域合规域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.4 空域地图/审批/违规处理</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>airspace（GeoJSON 多边形）、geofence、violation_record、weather_snapshot○(Mock)</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>GET /airspaces（地图分区渲染）· POST /airspaces/check（点/线 冲突校验，D3 与前端共用）· /geofences CRUD · GET /violations + POST /violations/{id}/penalty（分级处罚/通知书）· GET /weather/current（Mock 气象）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>PC 管理与处罚；机长端只读空域并接收告警</div>
+    </div>
+  </div>
+
+  <!-- D6 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D6 实时监控与飞行仿真域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.2 订单跟踪 + 4.2.4 动态监控 + 4.2.5 大屏实时指标</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表/缓存：</b>flight_track（按月分区）；Redis：设备在线状态、广播频道</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">接口与通道：</b>POST /tracks/batch（仿真器/未来真机统一上报入口）· GET /tracks?plan_id=（PC 全量点，移动端 Douglas-Peucker 抽稀）· <b>WS /ws/monitor</b> 频道 plan:{id}、pilot:{uid}、admin:overview · POST /simulator/start|stop（仿真控制）· GET /devices/online</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>同一 WS；PC 多机同屏，移动端只订阅当前任务</div>
+    </div>
+  </div>
+
+  <!-- D7 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#F7F7F5;padding:8px 12px;font-weight:700;color:#5F6670;">○ D7 应急与客服域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.6（P1）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>emergency_event、work_order、message_notification、help_article○</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>/emergencies（告警分级/处置时间线/关闭）· /work-orders（派单/转派/回复/满意度）· /messages（多渠道通知，复用 D6 WS 推送）· /help-articles○</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>双端均有；移动端主打告警接收与一步处置</div>
+    </div>
+  </div>
+
+  <!-- D8 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#eef2f9;padding:8px 12px;font-weight:700;color:#27395c;">● D8 统计报表域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.5（大屏总览 P0，自定义报表 ○）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据来源：</b>只读聚合 D1–D6 各表，结果缓存 Redis（5 分钟刷新）</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>GET /stats/overview（管理员大屏）· /stats/merchant（商家大屏）· /stats/airspace（空管大屏：通过率/冲突率/密度）· /reports/custom○（字段池拖拽）· /reports/export（Excel/PDF 导出）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>PC 专属；移动端仅给极简摘要数字</div>
+    </div>
+  </div>
+
+  <!-- D9 -->
+  <div style="border:1px solid #E4E3DD;border-radius:8px;margin-bottom:10px;overflow:hidden;">
+    <div style="background:#F7F7F5;padding:8px 12px;font-weight:700;color:#5F6670;">○ D9 系统配置域 <span style="font-weight:400;color:#5F6670;font-size:12.5px;">｜对应前端 4.2.7（P1；操作日志切面 P0 随各域自动生效）</span></div>
+    <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:14px;font-size:13px;">
+      <div style="flex:1 1 240px;"><b style="color:#35705A;">数据表：</b>sys_config、operation_log、system_log、external_api_log、backup_record○</div>
+      <div style="flex:2 1 420px;"><b style="color:#4F6B9A;">代表 API：</b>/sys/configs（分组参数，关键项二次确认）· /sys/interfaces（外部接口启停/在线测试/调用日志）· /sys/backups（备份与受控恢复）· /sys/logs（多条件检索导出，留存≥6 个月）</div>
+      <div style="flex:1 1 220px;font-size:12.5px;color:#5F6670;"><b>双端差异：</b>PC 管理员专属，移动端不开放</div>
+    </div>
+  </div>
+
+  <!-- ========== C 反查矩阵 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:20px 0 10px;">C. 前端七大模块反查矩阵</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:13px;min-width:760px;">
+    <thead>
+      <tr style="background:#eef2f9;color:#27395c;">
+        <th style="border:1px solid #E4E3DD;padding:7px 9px;text-align:left;">前端模块</th>
+        <th style="border:1px solid #E4E3DD;padding:7px 9px;text-align:left;">PC 端核心页面</th>
+        <th style="border:1px solid #E4E3DD;padding:7px 9px;text-align:left;">移动端对应</th>
+        <th style="border:1px solid #E4E3DD;padding:7px 9px;text-align:left;">后端领域</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.1 账号权限</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">登录/注册审核/权限树/账号列表</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">登录注册/个人中心（全角色）</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D1（日志走 D9）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.2 订单全流程</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">下单/列表/详情跟踪/调度/结算</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">快速下单/订单跟踪（客户）· 工作台（机长）</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D2 + D3 + D6</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.3 低空资源</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">飞行器/场站/人员/资源统计</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">设备管理/维保/场站（机长、运维）</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D4</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.4 空域合规</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">空域地图/计划申报/审批/违规处理</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">飞行监控/审批（机长、移动管理员）</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D5 + D3 + D6</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.5 数据报表</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">三类大屏/自定义报表/导出分享</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">仅摘要（P1）</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D8</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.6 应急客服</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">告警/处置/工单/帮助中心</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">告警接收处置/在线客服</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D7</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:7px 9px;">4.2.7 系统配置</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">参数/接口/备份/日志</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">—</td><td style="border:1px solid #E4E3DD;padding:7px 9px;">D9</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ========== D 全局契约 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:20px 0 10px;">D. 全局接口约定（两个人都必须遵守）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;padding:12px 14px;background:#F7F7F5;font-size:13px;line-height:1.9;">
+    1. 统一响应体 <code>{code, message, data}</code>，异常不暴露堆栈与数据库信息；分页统一 <code>pageNum/pageSize</code>。<br>
+    2. 请求头 <code>Device-Type: PC|Mobile</code>：业务逻辑只写一份，在 schema 层做字段裁剪（如 OrderPcSchema / OrderMobileSchema），代码复用率 ≥80%。<br>
+    3. JWT 走 Authorization: Bearer；PC 有效期 8h、移动端 2h，支持 /auth/refresh 无感刷新；手机号/邮箱/身份证出参强制脱敏。<br>
+    4. <b>状态机唯一入口在 D3 的 service 层</b>：任何端只能调动作接口（approve/takeoff…），禁止直接 UPDATE 状态字段。<br>
+    5. 操作日志由装饰器/中间件自动写 operation_log，不靠各接口手写。<br>
+    6. 所有外部系统只允许经 Mock 适配层访问（payment/weather/utm/gcs 四个 adapter），将来接真系统只换 adapter，业务代码不动。<br>
+    7. 坐标一律 GCJ-02（高德坐标系），仿真器造点、库内存点、前端绘点三端统一，禁止混入 WGS-84。
+  </div>
+
+  <!-- ========== E 分工 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:20px 0 10px;">E. 两人分工与接口交付顺序</div>
+  <div style="display:flex;flex-wrap:wrap;gap:12px;">
+    <div style="flex:1 1 300px;border:1px solid #c7d3e8;border-radius:8px;padding:12px 14px;background:#f4f7fc;">
+      <b style="color:#27395c;">同学甲 · 前端为主</b><br>
+      <span style="font-size:13px;line-height:1.9;">PC：框架布局 → D1 登录 → D2 下单/列表 → D3 调度页 → D5 空域地图（高德图层）→ D6 监控大屏 → D4/D8/D7/D9 页面；后期合啃 UniApp 四角色路径。</span>
+    </div>
+    <div style="flex:1 1 300px;border:1px solid #c7d3e8;border-radius:8px;padding:12px 14px;background:#f4f7fc;">
+      <b style="color:#27395c;">同学乙 · 后端为主</b><br>
+      <span style="font-size:13px;line-height:1.9;">Flask 骨架+MySQL 建库 → D1 → D2 → D3 → D5 → D6（含仿真器/WS）打通闭环 → D4 并行 → D7/D8/D9；Swagger 先行，给甲 Mock 响应示例。</span>
+    </div>
+  </div>
+  <div style="margin-top:10px;border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;">
+    <b>接口交付顺序（闭环优先）：</b>D1 认证 → D2 订单 → D3 调度/任务 → D5 空域校验 → D6 轨迹/WS，这五个跑通即等于「申请-审批-调度-监控-结算」主干贯通；D4 资源并行补；D7/D8/D9 最后迭代。第 1–2 周乙必须先出 P0 接口的 Swagger 骨架与假响应，甲不等后端即可开工。
+  </div>
+
+  <!-- ========== F 实现回填 ========== -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 10px;">F. 实现回填与契约对照（2026-09-28 P0 批次，代码为准）</div>
+  <div style="font-size:12.8px;color:#5F6670;line-height:1.9;margin-bottom:8px;">
+    本节把 B 节（代表接口清单）与 D 节（全局约定）逐条对回 <code>代码/backend/app</code> 的实际实现。
+    原则：<b>契约不解释代码，代码也不迁就契约——差异写清楚，谁改由人定</b>。核对工具：
+    <code>scripts/export_perm_matrix.py</code>（从 url_map + 装饰器元数据 + RBAC 三张表反向生成）、
+    <code>tests/test_perms_matrix.py</code>（逐条断言，路径或门禁漂移会直接跑失败）。
+  </div>
+
+  <div style="font-size:13.6px;font-weight:700;color:#27395c;margin:10px 0 6px;">F.1 契约路径 → 实现路径</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:840px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">契约（B 节）</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">实现</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">口径差异与结论</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /users/me</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /api/auth/me</code>（另有 <code>/auth/menus</code>）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">统一收进 D1 蓝图前缀；菜单树单独给端点，前端动态路由只调一次</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /admin/users</code>、<code>PUT /admin/users/&lt;id&gt;</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>/api/system/users</code> + <code>/&lt;id&gt;/status</code> · <code>/&lt;id&gt;/roles</code> · <code>/&lt;id&gt;/password</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">"改一个字段"拆成三个动作端点，各自挂权限点（<code>system:user</code> / <code>system:role</code>），避免一个大 PUT 里什么都不能拦</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>POST /auth/refresh</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>POST /api/auth/refresh</code> ✅ 本批补齐</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">见 F.3。之前只有 D-03 的承诺、没有实现</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>POST /simulator/start</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /api/simulator/status|scenarios</code> · <code>POST /inject|pause|speed</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">没有单一 start/stop：<b>"起飞"必须走 D3 审批后的计划</b>（<code>POST /flight-plans/&lt;id&gt;/takeoff</code>），仿真器只推进已在飞的计划并注入异常；五个端点统一 <code>@perm_required("demo:run")</code></td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /violations</code>、<code>POST /violations/&lt;id&gt;/penalty</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>/api/aux/violations</code>、<code>/api/aux/violations/&lt;id&gt;/penalty</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">违规记录从"人工录入"改为合规监测逐帧自动入账（设计07 第八节）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /orders/&lt;id&gt;</code> 等 D2 端点</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">一致（<code>/api/orders*</code>、<code>/api/flight-plans*</code> 14 个动作端点、<code>/api/dispatch/*</code>）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">主干契约原样落地，无需变更</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>GET /weather/current</code>、<code>POST /tracks/batch</code>、<code>POST /airspaces/check</code>、<code>POST /merchants/apply</code>、<code>PUT /admin/merchants/&lt;id&gt;/audit</code>、<code>GET /stats/overview</code>、<code>GET /devices/online</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#8a3b2f;">未提供同名端点</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">分别由 <code>weather adapter</code>（内部读，不对外）、仿真器直接落帧、<code>POST /flight-plans</code> 内的合规闸、<b>M-82 商家入驻审核仍是缺口（P1）</b>、<code>/api/aux/report</code> + <code>/api/monitor/screen.today</code>、<code>/api/monitor/screen.fleet</code> + <code>/api/monitor/alerts</code> 承担。<b>答辩时按"能力已在、端点形态不同"讲，不要说契约全中</b></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="font-size:13.6px;font-weight:700;color:#27395c;margin:14px 0 6px;">F.2 接口 × 权限映射（契约第 4 条的落地证据）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;padding:12px 14px;background:#F7F7F5;font-size:13px;line-height:1.9;">
+    全量表已独立成文：<code>代码/backend/docs/接口权限映射表.md</code>（由脚本反向生成，不允许手写维护）。当前口径：<br>
+    · 端点 <b>108</b> 个 = 权限门禁 <b>70</b>（多点全需 61 / 任需 9） + 登录自助 <b>33</b>（按本人 user_id 或 <code>scope.merchant_scope</code> 收窄） + 公开白名单 <b>5</b>（login / register / health / 大屏脱敏读 / 帮助文章公开读）；<b>裸端点 0</b>。<br>
+    · 权限点 <b>41</b>（DDL 33 + 本批 8）、角色 <b>9</b>；<code>platform_admin</code> 走通配，其余按 <code>role_permission</code> 展开。<br>
+    · 数据范围：平台角色（user_type 4/5/6）不收窄，商家侧强制 <code>merchant_id</code>，客户侧强制本人 <code>user_id</code>——由 <code>app/common/scope.py</code> 一处实现，散点自己拼 WHERE 的写法本批已清掉。<br>
+    · 漂移防线：<code>scripts/check_p0_gates.py</code> 拿八个演示账号（覆盖 9 角色）打现网接口对状态码，并专项断言数据范围；<code>export_perm_matrix.py</code> 遇到未归类端点直接 exit 1。
+  </div>
+
+  <div style="font-size:13.6px;font-weight:700;color:#27395c;margin:14px 0 6px;">F.3 双凭证与无感刷新（补齐 D-03 / 全局约定第 3 条）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.95;">
+    <b>后端</b>：<code>login()</code> 一次返回 <code>token</code>（PC 8h / 移动 2h）+ <code>refreshToken</code>（<code>REFRESH_TOKEN_DAYS=7</code>），两者都带 <code>user_type / roles / device</code> 三个 claim，续期时靠 <code>device</code> 还原有效期。
+    <code>POST /api/auth/refresh</code> 用 <code>jwt_required(refresh=True)</code> <b>只认刷新凭证</b>，并现查账号状态——冻结/注销的账号返回 40300「无法续期」；续期是唯一的重发卡时机，这道闸不放就等于冻结形同虚设。<br>
+    <b>前端</b>：<code>utils/request.ts</code> 命中 401/40100 时先静默续一张、重放原请求，续不动才清登录态跳登录页。三条硬规矩：① 登录/续期/注册自身不触发续期（否则 401 递归）；② 同一时刻只允许一条续期请求在飞（大屏 2.5s 一拉 + 页面并发，不设门闩就是并发打后端）；③ 两张票一起存 <code>ts_token</code> / <code>ts_refresh_token</code>、一起清，只清 access 会被残留的刷新票悄悄续回来。<br>
+    <b>边界</b>：本期无 Redis，所以刷新凭证<b>不能吊销</b>——退出登录只是前端丢弃凭证，7 天内泄露的 refreshToken 仍可用。这条与"登录失败锁定""token 黑名单"一起留给接 Redis 的批次，属已知欠账（设计07 第八节同步记录）。
+  </div>
+
+  <div style="font-size:13.6px;font-weight:700;color:#27395c;margin:14px 0 6px;">F.4 全局约定 7 条逐条对账</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:820px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;">约定</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">状态</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">实现位置 / 差异</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 统一响应体，异常不暴露堆栈</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>common/response.py</code> + <code>common/errors.py</code>（含 JWT 四类异常转 401/40100）。<b>差异</b>：分页入参实际是 <code>page/pageSize</code>、出参 <code>{list,total,page,pageSize}</code>，不是契约写的 <code>pageNum</code>；以代码为准，改契约成本更低</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">2 <code>Device-Type</code> + schema 层字段裁剪（复用率 ≥80%）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#8a3b2f;">◐ 部分</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">请求头生效（并兼容登录体里的 <code>deviceType</code>），有效期也确实按端区分；但 <b>marshmallow 双 Schema 未落地</b>，校验是 service 里手写 if/raise，PC/移动差异靠 <code>to_*_dict</code> 出参函数与 <code>scope</code> 收窄实现</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">3 JWT 8h/2h + <code>/auth/refresh</code> 无感刷新 + 出参强制脱敏</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现（本批补 refresh）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">见 F.3；脱敏：<code>crypto.mask_phone</code> + 大屏双口径（匿名/过期自动打码）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">4 状态机唯一入口在 D3 service</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">本批把最后一条绕行（仿真器自行改状态）改走 <code>dispatch_service.finish_landing()</code>；<code>tests/test_state_machine.py</code> 用 27 个用例钉住订单/计划双轨的主干跃迁、非法跃迁与资源占用</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">5 操作日志中间件自动写</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>app/__init__.py</code> 的 <code>after_request</code>（best effort，失败只 warning 不影响主流程）。<b>注意</b>：<code>operation_log.status</code> 存 HTTP 状态码，列类型由迁移 p6 放宽后才可用</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">6 外部系统只经 4 个 adapter</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>app/adapters/{payment,weather,utm,gcs}.py</code>，出参结构对齐真接口；接入时换实现不动业务</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">7 坐标一律 GCJ-02</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#35705A;">● 兑现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">仿真造点、库内存点、高德绘图三端一致，几何判定在 <code>services/geo.py</code></td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">A 节的 Redis 与 WebSocket</td><td style="border:1px solid #E4E3DD;padding:5px 8px;color:#8a3b2f;">◐ 未引入</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">单进程无 Redis：Token 黑名单 / 设备心跳 / WS 广播四项能力全部降级为 DB 热快照 + 前端 2.5s 轮询；<code>socketio</code> 依赖已装、报文约定保留在设计与代码注释里，作为二期接入契约</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:10px;border-left:4px solid #9A6A2F;background:#fbf6ec;border-radius:0 6px 6px 0;padding:10px 14px;font-size:12.8px;line-height:1.9;color:#6b4a1f;">
+    <b>本节怎么维护：</b>接口或权限点一旦增删，先改代码，再跑 <code>scripts/export_perm_matrix.py</code> 重生成映射表，最后回来看 F.1/F.4 的措辞要不要跟。
+    <b>不要反过来照着本文写代码</b>——本文 F 节是"实现说明"，B 节才是"契约"，两者冲突时以 B 节为待办、以代码为现状。
+  </div>
+
+  <div style="margin-top:16px;font-size:12px;color:#5F6670;border-top:1px solid #E4E3DD;padding-top:8px;">天枢项目设计讨论稿 v0.3 ｜ 与 v0.2 状态机配套使用 ｜ API 路径为契约基线，字段细节在数据库设计（第 4 步）与 Swagger 中定稿 ｜ F 节为 2026-09-28 P0 批次实现回填</div>
+</div>
+</html>

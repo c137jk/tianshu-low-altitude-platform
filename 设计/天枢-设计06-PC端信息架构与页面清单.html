@@ -1,0 +1,275 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:22px 24px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#1A1B1C;background:#fff;font-size:14px;line-height:1.55;">
+
+  <div style="border-left:5px solid #4F6B9A;padding-left:12px;margin-bottom:12px;">
+    <div style="font-size:20px;font-weight:700;color:#27395c;">天枢平台 — PC 端信息架构与页面清单（设计06 · 顶替 Axure 原型）</div>
+    <div style="font-size:12.5px;color:#5F6670;margin-top:4px;">Vue3+TS+Vite+Element Plus；严格对齐设计03 的 7 模块/9 领域与 DDL 的 32 权限点；● P0　○ P1/P2；路由 meta.perm 挂权限编码，菜单由后端权限树动态渲染</div>
+  </div>
+
+  <!-- ============ 一、总体策略 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:16px 0 8px;">一、一套工程 · 两套布局 · 三种视角（关键决策）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:stretch;">
+    <div style="flex:1 1 300px;border:1px solid #c7d3e8;border-radius:8px;background:#f4f7fb;padding:12px 14px;">
+      <b style="color:#27395c;">为什么只建一个 Vue 工程？</b><br>
+      <span style="font-size:13px;line-height:1.9;">两个人没有精力维护两套构建。登录后按 <code>user_type + 角色</code> 分流到两套布局：<br>
+      <b>① PortalLayout 客户门户</b>（下单/我的订单/跟踪/账单，风格偏 C 端）<br>
+      <b>② AdminLayout 管控台</b>（平台/空管/商家员工共用，菜单按角色显隐）。<br>
+      组件、请求库、状态管理全部复用，省一半基建。</span>
+    </div>
+    <div style="flex:1 1 300px;border:1px solid #c7d3e8;border-radius:8px;background:#f4f7fb;padding:12px 14px;">
+      <b style="color:#27395c;">三种视角看到什么？</b><br>
+      <span style="font-size:13px;line-height:1.9;">
+      <b>平台视角</b>（管理员/空管/运维）：全量数据、审批、监管、系统配置；<br>
+      <b>商家视角</b>（管理员/调度/机长/财务/设备运维）：查询强制带 merchant_id，只看本企业；<br>
+      <b>客户视角</b>：只看本人订单与账单。<br>
+      同一页面组件、不同接口数据范围（后端兜底，前端只做菜单隐藏）。</span>
+    </div>
+  </div>
+  <div style="font-size:13px;border:1px solid #bfe0d9;background:#f2f8f6;border-radius:8px;padding:10px 14px;margin-top:10px;line-height:1.9;">
+    <b>页面 → 权限 → 路由 三者绑定机制：</b>DDL 里 32 个权限点（如 <code>dispatch:plan</code>）= 路由 <code>meta.perm</code>；登录后 GET /users/me 返回权限树 → 动态生成左侧菜单 + 动态 addRoute；直接输 URL 访问无权限页 → 跳 403。菜单不用写死，以后在系统管理里勾权限即可改。
+  </div>
+
+  <!-- ============ 二、页面树 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">二、页面树总览（编号即开发与交付编号）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;padding:14px 16px;font-size:13px;line-height:2;background:#fcfcfb;">
+    <b>公共页（免登录可访问）</b><br>
+    &nbsp;&nbsp;├─ P-00 登录页 <span style="color:#35705A;">●</span>　├─ P-01 注册/商家入驻申请 <span style="color:#35705A;">●</span>　├─ 403 / 404 页 <span style="color:#35705A;">●</span><br>
+    <b style="color:#27395c;">客户门户 PortalLayout（customer）</b><br>
+    &nbsp;&nbsp;├─ C-1 门户首页 <span style="color:#35705A;">●</span>　├─ C-2 在线下单（高德选点+费用试算+Mock支付）<span style="color:#35705A;">●</span><br>
+    &nbsp;&nbsp;├─ C-3 我的订单 <span style="color:#35705A;">●</span>　├─ C-4 订单详情·实时跟踪（WS）<span style="color:#35705A;">●</span>　├─ C-5 我的账单 <span style="color:#35705A;">●</span><br>
+    &nbsp;&nbsp;├─ C-6 地址簿 <span style="color:#9A6A2F;">○</span>　├─ C-7 个人中心/实名认证 <span style="color:#35705A;">●</span>　├─ C-8 评价/投诉 <span style="color:#9A6A2F;">○</span><br>
+    <b style="color:#27395c;">管控台 AdminLayout（8 个一级菜单，与权限种子一一对应）</b><br>
+    &nbsp;&nbsp;├─ <b>① 驾驶舱</b>：M-11 综合运行驾驶舱 <span style="color:#35705A;">●</span>　M-12 统计报表/导出 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>② 订单管理</b>：M-21 订单列表 <span style="color:#35705A;">●</span>　M-22 订单详情（状态时间线/动作）<span style="color:#35705A;">●</span>　M-23 批量下单 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>③ 调度飞行</b>：M-31 调度工作台 <span style="color:#A14E50;">●核心</span>　M-32 飞行计划列表 <span style="color:#35705A;">●</span>　M-33 计划详情 <span style="color:#35705A;">●</span>　M-34 空管审批台 <span style="color:#35705A;">●</span>　M-35 机长任务台 <span style="color:#35705A;">●</span>　M-36 排班日历 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>④ 空域合规</b>：M-41 空域一张图（绘制/图层）<span style="color:#35705A;">●</span>　M-42 空域列表/审核 <span style="color:#35705A;">●</span>　M-43 电子围栏 <span style="color:#35705A;">●</span>　M-44 违规记录与处罚 <span style="color:#35705A;">●</span>　M-45 气象监控 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>⑤ 低空资源</b>：M-51 飞行器台账 <span style="color:#35705A;">●</span>　M-52 飞行器详情/维保 <span style="color:#35705A;">●</span>　M-53 场站管理 <span style="color:#35705A;">●</span>　M-54 人员档案/资质 <span style="color:#35705A;">●</span>　M-55 场站预约 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>⑥ 监控中心</b>：M-61 实时监控大屏（独立全屏路由 /screen）<span style="color:#A14E50;">●核心</span>　M-62 轨迹回放 <span style="color:#35705A;">●</span>　M-63 设备在线 <span style="color:#35705A;">●</span>　M-64 应急事件 <span style="color:#9A6A2F;">○</span>　M-65 客服工单 <span style="color:#9A6A2F;">○</span>　M-66 消息告警 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;├─ <b>⑦ 结算管理</b>：M-71 结算单 <span style="color:#35705A;">●</span>　M-72 对账处理 <span style="color:#35705A;">●</span>　M-73 支付流水 <span style="color:#35705A;">●</span>　M-74 发票 <span style="color:#9A6A2F;">○</span><br>
+    &nbsp;&nbsp;└─ <b>⑧ 系统管理</b>：M-81 用户管理 <span style="color:#35705A;">●</span>　M-82 商家入驻审核 <span style="color:#35705A;">●</span>　M-83 角色权限（权限树勾选）<span style="color:#35705A;">●</span>　M-84 资质审核 <span style="color:#35705A;">●</span>　M-85 参数配置 <span style="color:#35705A;">●</span>　M-86 操作日志 <span style="color:#35705A;">●</span>　M-87 接口/备份/帮助 <span style="color:#9A6A2F;">○</span>
+  </div>
+  <div style="font-size:12.5px;color:#5F6670;margin-top:6px;">合计：公共 3 + 客户门户 8 + 管控台 30 个页面/视图，其中 P0 共 28 个，P1/P2 共 13 个。</div>
+
+  <!-- ============ 三、管控台清单 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">三、管控台页面清单（页面内容 / 状态动作 / 谁能看 / 调谁）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:980px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;">编号·页面（路由）</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;">核心内容</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;">动作（对应状态机）</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;">可见角色</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;">领域/API</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">① 驾驶舱 dashboard</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-11 综合驾驶舱<br>/admin/dashboard <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">KPI 卡（单量/在飞/在线机/违规）、订单趋势 ECharts、状态分布、待办列表；平台/商家/空管三套组件按视角切换</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">跳转各待办</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">全部管控角色</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D8 /stats/overview·merchant·airspace</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-12 统计报表<br>/admin/report <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">条件查询、图表、Excel/PDF 导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员/财务</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D8 /reports/export</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">② 订单管理 order（perm：order:list / order:refund）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-21 订单列表<br>/admin/order/list <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">多条件筛选（单号/状态/时间/重量）、状态 Tab、分页、导出；待接单池高亮</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">接单 accept / 拒单 reject</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家管理员·调度；平台只读全量</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 GET /orders</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-22 订单详情<br>/admin/order/:id <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">寄收/物品/费用快照、双轨状态时间线（订单轨+计划轨）、关联计划/结算/流水</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">取消 cancel / 退款 refund（动作全走 D2/D3）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家各岗、平台</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /orders/{id}</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-23 批量下单<br>/admin/order/batch <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">Excel 模板导入、逐行校验结果</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">批量提交</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /orders/batch</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">③ 调度飞行 dispatch（系统最核心模块，对应 D-06：先方案→再申报→批后下发）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-31 调度工作台<br>/admin/dispatch/board <span style="color:#A14E50;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><b>三栏：</b>左=待调度订单池；中=高德地图（推荐航线、空域叠加、禁飞红色预警）；右=方案面板（飞机/机长/起降场下拉、航程航时、续航载重校验、气象）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">一键推荐 recommend → 保存方案 → 提交申报 submit（订单 2→3、计划 0→1）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度员·商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3 /dispatch/recommend、/flight-plans、/submit；D5 /airspaces/check</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-32 飞行计划列表<br>/admin/dispatch/plans <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">按计划状态分 Tab（待申报/待审批/待执行/执行中/完成/驳回）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">申报/取消</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度、空管、机长（只看自己）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3 GET /flight-plans</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-33 计划详情<br>/admin/dispatch/plans/:id <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">航线图、方案字段、审批记录时间线（approval_record 多轮）、实时位置卡</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">批准后 assign 下发机长；机长 takeoff/land（计划 2→3→4，订单联动）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度/机长</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3 /assign·/takeoff·/land；D6 WS</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-34 空管审批台<br>/admin/dispatch/approval <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">待审批队列、航线与空域/限高叠加、气象卡、批量勾选</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">通过 approve / 驳回 reject（必填原因，计划回 5、订单回 2 待调度）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><b>空管监管员专属</b></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3 /approve·/reject·/batch-approve</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-35 机长任务台<br>/admin/dispatch/missions <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">只列本人任务卡片：航线、任务窗、电量、一键开始/结束</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">接收/起飞/送达/降落确认</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">机长</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3 + D6 WS pilot:{uid}</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-36 排班日历<br>/admin/dispatch/schedule <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">日历视图拖拽排班、冲突提示</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">排班/调班</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4 /schedules</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">④ 空域合规 airspace（高德图层重头，GCJ-02）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-41 空域一张图<br>/admin/airspace/map <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">禁飞红/限飞黄/可飞绿多边形、围栏、气象图层；多边形/圆形绘制工具；信息窗编辑</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">新增/编辑空域、设临时管制时段</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空管/管理员（绘制 airspace:draw）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5 /airspaces、/geofences</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-42 空域列表/审核<br>/admin/airspace/list <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">表格管理、生效/失效、平台审核自绘空域</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">审核/停用</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空管/管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5 /airspaces</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-43 电子围栏<br>/admin/airspace/geofence <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家自定义围栏 CRUD、限入限出告警距离</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">增删改、启停</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家/空管</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5 /geofences</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-44 违规与处罚<br>/admin/airspace/violations <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">违规列表、详情内嵌轨迹回放取证、分级处罚表单、通知书导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">警告/罚款/暂停/封禁 penalty</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空管/管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5 /violations、/penalty</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-45 气象监控<br>/admin/airspace/weather <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">网格气象点、强对流预警色</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">查看（Mock 10 分钟刷新）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空管/调度</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5 /weather/current</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">⑤ 低空资源 resource</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-51 飞行器台账<br>/admin/resource/aircraft <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">列表、健康度红黄绿标签、状态、电量；新增/编辑</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">增改、停用、报维保</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">设备运维/商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4 /aircraft</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-52 飞行器详情<br>/admin/resource/aircraft/:id <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">档案、适航资质、累计飞行、维保时间线</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">登记维保/故障</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">设备运维</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4 /maintenances</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-53 场站管理<br>/admin/resource/vertiport <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">地图标点 + 列表，容量/充电桩、开放时段</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">增改、维护/开放切换</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">运维/商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4 /vertiports</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-54 人员与资质<br>/admin/resource/staff <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">机长/运维列表、资质到期红黄预警</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">上传/审核资质</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1/D4 /staff、/qualifications</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-55 场站预约<br>/admin/resource/reservations <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">预约列表、时段容量冲突</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">审核</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">运维</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4 /reservations</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">⑥ 监控中心 monitor（WS /ws/monitor）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-61 实时大屏<br>/screen（全屏无侧栏）<span style="color:#A14E50;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">温州地图多机同屏、轨迹实时拖尾、在线/告警滚动、KPI；订阅 admin:overview</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">点飞机进详情、应急介入</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">平台/空管/商家管理</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D6 WS + /devices/online；D8</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-62 轨迹回放<br>/admin/monitor/track <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">选计划、时间轴播放/倍速/暂停、违规点红色标注</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">导出轨迹</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空管/调度/取证</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D6 GET /tracks</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-63 设备在线<br>/admin/monitor/devices <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">在线/离线/失联列表、最后心跳与位置</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">标记失联</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">运维/空管</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D6 /devices/online</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-64/65/66 应急·工单·消息 <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">应急分级处置时间线、工单流转、站内消息</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">处置/派单/已读</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">平台/客服</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D7</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">⑦ 结算管理 settlement（财务岗主用）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-71 结算单 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">送达自动生成的账单列表、费用构成</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">查看/导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">财务/管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /settlements</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-72 对账处理 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">流水核对结果、差异标红</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">确认/差异转工单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">财务</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /settlements/reconcile</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-73 支付流水 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">支付/退款全流水、Mock 渠道流水号</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">查看</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">财务</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /payments</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-74 发票 <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">开票申请与记录</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">开具</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">财务</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2/P2 invoice</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="5" style="border:1px solid #d4dbe8;padding:5px 8px;">⑧ 系统管理 system（平台管理员为主）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-81 用户管理 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">账号列表、角色分配、冻结/解冻（脱敏展示）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">冻结/重置密码</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1 /admin/users</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-82 商家入驻审核 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">申请队列、资质材料</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">通过/驳回</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1 /admin/merchants/audit</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-83 角色权限 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">左角色列表、右权限树勾选（父子级联）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">保存授权</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1 /roles、/permissions</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-84 资质审核 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家/人员/飞行器资质统一队列、到期预警</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">通过/驳回</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1 /qualifications</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-85 参数配置 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">分组表单（超时/轨迹保留/预警天数/返航电量），改动二次确认</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">保存</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D9 /sys/configs</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-86 操作日志 <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">多条件检索、留存 6 个月、导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">查看</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">管理员/运维</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D9 /sys/logs</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-87 接口/备份/帮助 <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">Mock 接口启停测试、备份记录、帮助文章</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">受控操作</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">运维</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D9</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 四、客户门户 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">四、客户门户页面清单（C 端体验，后期 UniApp 复刻）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:860px;">
+    <thead><tr style="background:#e7f3f0;color:#174e44;">
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;">编号·路由</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">核心内容</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">动作</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">领域/API</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-1 /portal <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">Banner、快速下单入口、在途订单卡、服务说明</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">跳转</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-2 /portal/order/create <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">高德选寄/收点（逆地理回填）、物品重量、加急/预约、禁运提示、右侧实时费用试算、Mock 收银台</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">estimate→下单→pay</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 /orders/estimate·/orders·/pay；高德</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-3 /portal/orders <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">我的订单、状态 Tab、进度条</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">取消/再次下单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2 GET /orders</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-4 /portal/orders/:id <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">地图看飞机移动（WS plan:{id}）、状态时间线、电子回单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">确认收货</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2+D6</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-5 /portal/bills <span style="color:#35705A;">●</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">我的账单与支付记录</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">申请发票(P1)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-6 地址簿 <span style="color:#9A6A2F;">○</span> / C-7 个人中心·实名 <span style="color:#35705A;">●</span> / C-8 评价投诉 <span style="color:#9A6A2F;">○</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">地址 CRUD；资料/密码/实名认证；星级与投诉</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">保存/提交</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1/D2</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 五、核心线框 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">五、四个核心页面低保真线框（示意，最终以 Vue 实现为准）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;">
+    <!-- 线框1 主框架 -->
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:700;color:#27395c;margin-bottom:6px;">① 管控台主框架 AdminLayout</div>
+      <svg viewBox="0 0 460 250" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="460" height="250" fill="#fcfcfb" stroke="#cbd2dc"/>
+        <rect x="0" y="0" width="460" height="30" fill="#27395c"/>
+        <text x="12" y="20" fill="#fff" font-size="11">天枢管控台</text>
+        <text x="330" y="20" fill="#cdd6e8" font-size="10">消息｜角色切换｜用户▾</text>
+        <rect x="0" y="30" width="110" height="220" fill="#eef2f9" stroke="#cbd2dc"/>
+        <g font-size="10" fill="#27395c">
+          <text x="12" y="50">▸ 驾驶舱</text><text x="12" y="70">▸ 订单管理</text>
+          <rect x="0" y="78" width="110" height="20" fill="#dbe6f6"/><text x="12" y="92" font-weight="700">▸ 调度飞行</text>
+          <text x="12" y="112">▸ 空域合规</text><text x="12" y="132">▸ 低空资源</text>
+          <text x="12" y="152">▸ 监控中心</text><text x="12" y="172">▸ 结算管理</text><text x="12" y="192">▸ 系统管理</text>
+        </g>
+        <rect x="120" y="40" width="330" height="20" fill="#fff" stroke="#cbd2dc"/>
+        <text x="128" y="54" font-size="9.5" fill="#5F6670">多标签页：调度工作台 × ｜ 计划详情 ×</text>
+        <rect x="120" y="66" width="100" height="52" fill="#fff" stroke="#4F6B9A"/><text x="130" y="88" font-size="9.5">KPI 卡</text><text x="130" y="106" font-size="12" font-weight="700" fill="#27395c">数值</text>
+        <rect x="230" y="66" width="100" height="52" fill="#fff" stroke="#4F6B9A"/><text x="240" y="88" font-size="9.5">KPI 卡</text>
+        <rect x="340" y="66" width="110" height="52" fill="#fff" stroke="#4F6B9A"/><text x="350" y="88" font-size="9.5">KPI 卡</text>
+        <rect x="120" y="126" width="330" height="112" fill="#fff" stroke="#cbd2dc"/><text x="130" y="148" font-size="9.5" fill="#5F6670">内容区（列表 / 表单 / 地图，router-view）</text>
+      </svg>
+    </div>
+    <!-- 线框2 调度工作台 -->
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:700;color:#27395c;margin-bottom:6px;">② 调度工作台 M-31（核心三栏）</div>
+      <svg viewBox="0 0 460 250" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="460" height="250" fill="#fcfcfb" stroke="#cbd2dc"/>
+        <rect x="6" y="8" width="120" height="234" fill="#fff" stroke="#cbd2dc"/>
+        <text x="14" y="24" font-size="10" font-weight="700" fill="#27395c">待调度订单池</text>
+        <rect x="12" y="32" width="108" height="34" fill="#eef2f9" stroke="#4F6B9A"/><text x="18" y="48" font-size="9">TS...001 2.5kg</text><text x="18" y="61" font-size="8.5" fill="#5F6670">龙湾→瓯江口</text>
+        <rect x="12" y="70" width="108" height="34" fill="#f7f7f5" stroke="#cbd2dc"/><text x="18" y="90" font-size="9">TS...002</text>
+        <rect x="12" y="108" width="108" height="34" fill="#f7f7f5" stroke="#cbd2dc"/><text x="18" y="128" font-size="9">TS...003</text>
+        <rect x="132" y="8" width="200" height="234" fill="#eef4f2" stroke="#bfe0d9"/>
+        <text x="140" y="24" font-size="10" fill="#174e44">高德地图：航线+空域叠加</text>
+        <polygon points="160,200 200,120 300,80 305,78" fill="none" stroke="#4F6B9A" stroke-width="2" stroke-dasharray="4 3"/>
+        <circle cx="160" cy="200" r="5" fill="#35705A"/><circle cx="305" cy="78" r="5" fill="#A14E50"/>
+        <rect x="210" y="150" width="80" height="40" fill="#fdecec" stroke="#A14E50" stroke-dasharray="3 2"/><text x="220" y="173" font-size="8.5" fill="#A14E50">禁飞区(红)</text>
+        <rect x="338" y="8" width="116" height="234" fill="#fff" stroke="#cbd2dc"/>
+        <text x="346" y="24" font-size="10" font-weight="700" fill="#27395c">方案面板</text>
+        <text x="346" y="46" font-size="9" fill="#5F6670">飞行器 ▾ TS-UAV-001</text>
+        <text x="346" y="68" font-size="9" fill="#5F6670">机长 ▾ 王调度</text>
+        <text x="346" y="90" font-size="9" fill="#5F6670">起降场 ▾ VP-001</text>
+        <text x="346" y="112" font-size="9" fill="#5F6670">航程 8.2km / 11min</text>
+        <text x="346" y="134" font-size="9" fill="#35705A">续航/载重校验通过</text>
+        <rect x="346" y="150" width="100" height="22" fill="#4F6B9A"/><text x="356" y="165" font-size="9.5" fill="#fff">一键推荐</text>
+        <rect x="346" y="178" width="100" height="22" fill="#fff" stroke="#4F6B9A"/><text x="356" y="193" font-size="9.5" fill="#27395c">保存方案</text>
+        <rect x="346" y="206" width="100" height="22" fill="#35705A"/><text x="356" y="221" font-size="9.5" fill="#fff">提交空管申报</text>
+      </svg>
+    </div>
+    <!-- 线框3 客户下单 -->
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:700;color:#27395c;margin-bottom:6px;">③ 客户下单 C-2</div>
+      <svg viewBox="0 0 460 250" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="460" height="250" fill="#fcfcfb" stroke="#cbd2dc"/>
+        <rect x="8" y="8" width="210" height="200" fill="#fff" stroke="#cbd2dc"/>
+        <text x="16" y="26" font-size="10" font-weight="700" fill="#27395c">配送信息</text>
+        <rect x="16" y="34" width="194" height="20" fill="#f7f7f5" stroke="#cbd2dc"/><text x="22" y="48" font-size="9" fill="#5F6670">寄件地址（地图选点）</text>
+        <rect x="16" y="58" width="194" height="20" fill="#f7f7f5" stroke="#cbd2dc"/><text x="22" y="72" font-size="9" fill="#5F6670">收件地址（地图选点）</text>
+        <rect x="16" y="82" width="94" height="20" fill="#f7f7f5" stroke="#cbd2dc"/><text x="22" y="96" font-size="9" fill="#5F6670">物品类型</text>
+        <rect x="116" y="82" width="94" height="20" fill="#f7f7f5" stroke="#cbd2dc"/><text x="122" y="96" font-size="9" fill="#5F6670">重量 kg</text>
+        <rect x="16" y="106" width="194" height="20" fill="#f7f7f5" stroke="#cbd2dc"/><text x="22" y="120" font-size="9" fill="#5F6670">普通/加急 · 预约时间</text>
+        <text x="16" y="148" font-size="9" fill="#A14E50">禁运品提示（类型联动）</text>
+        <rect x="226" y="8" width="226" height="160" fill="#eef4f2" stroke="#bfe0d9"/><text x="234" y="26" font-size="10" fill="#174e44">高德选点地图</text>
+        <circle cx="290" cy="110" r="5" fill="#35705A"/><circle cx="400" cy="70" r="5" fill="#A14E50"/>
+        <path d="M290,110 L400,70" stroke="#4F6B9A" stroke-dasharray="4 3"/>
+        <rect x="8" y="214" width="300" height="28" fill="#eef2f9" stroke="#4F6B9A"/><text x="16" y="232" font-size="10" fill="#27395c">费用试算：基础+空域+加急-优惠 = ¥ 0.00（实时）</text>
+        <rect x="316" y="214" width="136" height="28" fill="#35705A"/><text x="346" y="232" font-size="11" fill="#fff">提交订单 → Mock支付</text>
+      </svg>
+    </div>
+    <!-- 线框4 大屏 -->
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px;">
+      <div style="font-size:13px;font-weight:700;color:#27395c;margin-bottom:6px;">④ 实时监控大屏 M-61（/screen 全屏投屏）</div>
+      <svg viewBox="0 0 460 250" width="100%" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="460" height="250" fill="#0f1b2d"/>
+        <text x="230" y="20" font-size="12" fill="#9fc1ff" text-anchor="middle" font-weight="700">天枢低空运行实时大屏</text>
+        <rect x="8" y="30" width="96" height="46" fill="#16294a" stroke="#2f4c80"/><text x="16" y="50" font-size="8.5" fill="#8fb0e0">今日单量</text><text x="16" y="68" font-size="13" fill="#fff" font-weight="700">1,286</text>
+        <rect x="8" y="82" width="96" height="46" fill="#16294a" stroke="#2f4c80"/><text x="16" y="102" font-size="8.5" fill="#8fb0e0">在飞</text><text x="16" y="120" font-size="13" fill="#7fd6b0" font-weight="700">23</text>
+        <rect x="8" y="134" width="96" height="106" fill="#16294a" stroke="#2f4c80"/><text x="16" y="152" font-size="8.5" fill="#8fb0e0">状态分布</text><rect x="16" y="166" width="80" height="10" fill="#2f4c80"/><rect x="16" y="182" width="64" height="10" fill="#35705A"/><rect x="16" y="198" width="40" height="10" fill="#9A6A2F"/>
+        <rect x="110" y="30" width="240" height="210" fill="#13233c" stroke="#2f4c80"/>
+        <text x="118" y="46" font-size="8.5" fill="#8fb0e0">温州空域 · 多机同屏（WS 实时拖尾）</text>
+        <polygon points="180,180 220,110 300,90 330,140 280,200" fill="none" stroke="#2f4c80" stroke-dasharray="3 2"/>
+        <circle cx="200" cy="160" r="4" fill="#7fd6b0"/><circle cx="260" cy="120" r="4" fill="#7fd6b0"/><circle cx="320" cy="150" r="4" fill="#e0b35c"/>
+        <rect x="356" y="30" width="96" height="100" fill="#16294a" stroke="#2f4c80"/><text x="364" y="48" font-size="8.5" fill="#8fb0e0">趋势图(ECharts)</text><polyline points="364,110 384,90 404,98 424,70 444,80" fill="none" stroke="#7fd6b0" stroke-width="1.5"/>
+        <rect x="356" y="134" width="96" height="106" fill="#16294a" stroke="#A14E50"/><text x="364" y="152" font-size="8.5" fill="#e89">实时告警滚动</text><text x="364" y="172" font-size="8" fill="#c9d6ee">· 偏航预警</text><text x="364" y="190" font-size="8" fill="#c9d6ee">· 低电量</text>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ============ 六、路由结构 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">六、前端工程目录结构（甲按此搭骨架）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;background:#2b2f36;color:#e6e9ee;padding:12px 16px;font-size:12.5px;line-height:1.85;font-family:Consolas,monospace;white-space:pre;">src/
+├─ api/            # 按 D1-D9 分文件：auth.ts order.ts dispatch.ts airspace.ts ...（Axios 实例+拦截器）
+├─ layouts/
+│  ├─ AdminLayout.vue    # 管控台：侧菜单/顶栏/标签页
+│  └─ PortalLayout.vue   # 客户门户
+├─ router/
+│  ├─ index.ts           # 静态路由（登录/403/404 + 两个 layout 壳）
+│  └─ permission.ts      # 守卫：取权限树 → addRoute 动态挂页面，meta.perm 鉴权
+├─ stores/        # Pinia：user（token/权限）、dict（状态字典）、monitor（WS 数据）
+├─ views/
+│  ├─ portal/    # C-1 ~ C-8
+│  ├─ admin/     # dashboard order dispatch airspace resource monitor settlement system
+│  └─ screen/    # M-61 独立全屏大屏
+├─ components/    # 业务组件：OrderStatusTimeline、AirspaceMap、PlanForm、TrackPlayer...
+├─ composables/   # useWebSocket、useAmap（高德加载/安全密钥）、useDict
+└─ utils/         # 脱敏、GCJ-02 校验、下载导出</div>
+
+  <!-- ============ 七、开发批次 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">七、甲（前端）六批开发顺序（与乙的接口交付 D1→D2→D3→D5→D6 对齐）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;">批次</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">页面</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">前置接口</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">里程碑</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">批1 骨架</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">工程初始化、两套 Layout、P-00 登录、动态路由、M-83 权限树</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">三个演示账号能登录、菜单按角色不同</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">批2 客户线</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">C-1~C-5、C-7</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D2（+D6 WS）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">客户能走完下单→支付→看进度</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">批3 调度线</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-21/22、M-31/32/33/34/35</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D3+D5</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度→申报→审批→下发→起降 全链路可点</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">批4 地图线</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-41~44、M-61、M-62、M-63（高德重头）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D5+D6</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空域着色、实时拖尾、轨迹回放、违规取证</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">批5 管理线</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">M-11、M-51~54、M-71~73、M-81/82/84/85/86</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D4+D8+D9</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">资源、结算、驾驶舱、系统管理补齐</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">批6 P1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">全部 ○ 页面 + 报表导出</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">D7/D9</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">功能完整度收尾，准备联调答辩</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="border-left:4px solid #9A6A2F;background:#fbf7ee;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;line-height:1.9;margin-top:14px;">
+    <b>本步需要你拍板 4 件事：</b><br>
+    ① 一个 Vue 工程 + PortalLayout/AdminLayout 两套布局（而非两个工程）——认可？<br>
+    ② 管控台 8 个一级菜单（与 DDL 权限种子一一对应）——认可？<br>
+    ③ 监控大屏走独立全屏路由 /screen（无侧栏，方便答辩投屏）——认可？<br>
+    ④ 客户 PC 门户仍做完整（计划书 B/S 双端要求），移动 UniApp 后期只复刻 C-2/C-3/C-4 三个高频页——认可？
+  </div>
+
+  <div style="margin-top:14px;font-size:12px;color:#5F6670;border-top:1px solid #E4E3DD;padding-top:8px;">下一步：Mock 数据与飞行仿真脚本方案（造数脚本 + 1帧/秒仿真器伪代码 + WS 报文格式）｜对应设计03 D6、DDL flight_track</div>
+</div>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>低空活动公告 · 天枢</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f6fa; color: #1f2d3d; }
+  header { background: #1c3358; color: #f3eedd; padding: 28px 32px; }
+  header h1 { font-size: 20px; letter-spacing: 2px; }
+  header p { color: #9fb0cc; font-size: 13px; margin-top: 6px; }
+  main { max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { border: 1px solid #d5dbe6; background: #fff; padding: 7px 18px; border-radius: 4px; cursor: pointer; font-size: 13px; }
+  .tabs button.active { background: #1c3358; color: #e0c993; border-color: #1c3358; }
+  .item { background: #fff; border: 1px solid #e6eaf2; border-radius: 6px; padding: 18px 20px; margin-bottom: 12px; }
+  .item h3 { font-size: 15px; margin-bottom: 8px; }
+  .item p { color: #5b6572; font-size: 13.5px; line-height: 1.8; }
+  .item time { display: block; color: #9aa3b2; font-size: 12px; margin-top: 10px; }
+  .empty { text-align: center; color: #9aa3b2; padding: 60px 0; }
+  footer { text-align: center; color: #9aa3b2; font-size: 12px; padding: 30px 0; }
+  footer a { color: #1c3358; text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>天枢 · 低空活动信息公开</h1>
+  <p>起降场站运行公告、空域使用提示与公众常见问题</p>
+</header>
+<main>
+  <div class="tabs">
+    <button data-c="低空公告" class="active">低空公告</button>
+    <button data-c="使用指南">使用指南</button>
+    <button data-c="常见问题">常见问题</button>
+  </div>
+  <div id="list"><div class="empty">加载中...</div></div>
+</main>
+<footer>
+  <a href="/login">返回登录</a> · 温州天枢示范运营管控平台
+</footer>
+<script>
+  const API = '/api/aux/articles/public?category='
+  const listEl = document.getElementById('list')
+  async function load(cat) {
+    listEl.innerHTML = '<div class="empty">加载中...</div>'
+    try {
+      const d = await (await fetch(API + encodeURIComponent(cat))).json()
+      const rows = d.data || []
+      if (!rows.length) { listEl.innerHTML = '<div class="empty">暂无内容</div>'; return }
+      listEl.innerHTML = rows.map((r) =>
+        '<div class="item"><h3>' + r.title + '</h3><p>' + r.content +
+        '</p></div>').join('')
+    } catch (e) {
+      listEl.innerHTML = '<div class="empty">加载失败，请确认后端已启动</div>'
+    }
+  }
+  document.querySelectorAll('.tabs button').forEach((b) => {
+    b.onclick = () => {
+      document.querySelectorAll('.tabs button').forEach((x) => x.classList.remove('active'))
+      b.classList.add('active')
+      load(b.dataset.c)
+    }
+  })
+  load('低空公告')
+</script>
+</body>
+</html>

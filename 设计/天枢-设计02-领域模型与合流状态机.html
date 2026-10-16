@@ -1,0 +1,213 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:20px 22px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#0f172a;background:#ffffff;">
+
+  <div style="border-left:5px solid #1d4ed8;padding-left:12px;margin-bottom:6px;">
+    <div style="font-size:20px;font-weight:700;color:#1e3a8a;">天枢·低空智能运营管控平台 — 领域模型与合流生命周期（设计稿 v0.2）</div>
+    <div style="font-size:13px;color:#475569;margin-top:4px;">已确认顺序：先出调度方案 → 再申报审批 → 通过后下发机长执行；示意稿，状态名与表名以最终评审为准</div>
+  </div>
+
+  <!-- 图例 -->
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:13px;margin:12px 0 6px;color:#334155;">
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:14px;background:#eff6ff;border:1.5px solid #1d4ed8;border-radius:3px;display:inline-block;"></span>订单状态轨</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:16px;height:14px;background:#f0fdfa;border:1.5px solid #0f766e;border-radius:3px;display:inline-block;"></span>飞行计划状态轨（与订单 1:1）</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:22px;border-top:2px dashed #dc2626;display:inline-block;"></span>驳回回退</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:22px;border-top:2px dashed #ea580c;display:inline-block;"></span>异常/应急分支</span>
+    <span style="display:flex;align-items:center;gap:6px;"><span style="width:22px;border-top:2px dashed #94a3b8;display:inline-block;"></span>取消/终止</span>
+  </div>
+
+  <svg viewBox="0 0 1240 566" width="100%" role="img" aria-label="订单与飞行计划合流状态机" style="display:block;">
+    <defs>
+      <marker id="arr" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7.5,3 L0,6 Z" fill="#334155"/>
+      </marker>
+      <marker id="arrR" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7.5,3 L0,6 Z" fill="#dc2626"/>
+      </marker>
+      <marker id="arrO" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7.5,3 L0,6 Z" fill="#ea580c"/>
+      </marker>
+      <marker id="arrG" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7.5,3 L0,6 Z" fill="#94a3b8"/>
+      </marker>
+    </defs>
+
+    <!-- 轨标签 -->
+    <text x="14" y="172" font-size="14" font-weight="700" fill="#1e3a8a">订单</text>
+    <text x="14" y="322" font-size="14" font-weight="700" fill="#134e4a">飞行计划</text>
+
+    <!-- ===== 订单轨节点 ===== -->
+    <!-- cx: 140 285 430 575 720 865 1010 1155 ; w124 h54 ; y140 -->
+    <g font-size="14" font-weight="700" text-anchor="middle">
+      <rect x="78" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="140" y="173" fill="#1e3a8a">待支付</text>
+      <rect x="223" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="285" y="173" fill="#1e3a8a">待接单</text>
+      <rect x="368" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="430" y="173" fill="#1e3a8a">待调度</text>
+      <rect x="513" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="575" y="173" fill="#1e3a8a">待审批</text>
+      <rect x="658" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="720" y="173" fill="#1e3a8a">待起飞</text>
+      <rect x="803" y="140" width="124" height="54" rx="9" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2.2"/><text x="865" y="173" fill="#1e3a8a">飞行中</text>
+      <rect x="948" y="140" width="124" height="54" rx="9" fill="#eff6ff" stroke="#1d4ed8" stroke-width="1.6"/><text x="1010" y="173" fill="#1e3a8a">已送达</text>
+      <rect x="1093" y="140" width="124" height="54" rx="9" fill="#1e3a8a" stroke="#1e3a8a" stroke-width="1.6"/><text x="1155" y="173" fill="#ffffff">已完成</text>
+    </g>
+
+    <!-- 订单轨箭头与触发动作 -->
+    <g stroke="#334155" stroke-width="1.6" fill="none" marker-end="url(#arr)">
+      <line x1="202" y1="167" x2="221" y2="167"/>
+      <line x1="347" y1="167" x2="366" y2="167"/>
+      <line x1="492" y1="167" x2="511" y2="167"/>
+      <line x1="637" y1="167" x2="656" y2="167"/>
+      <line x1="782" y1="167" x2="801" y2="167"/>
+      <line x1="927" y1="167" x2="946" y2="167"/>
+      <line x1="1072" y1="167" x2="1091" y2="167"/>
+    </g>
+    <g font-size="12.5" fill="#475569" text-anchor="middle">
+      <text x="211" y="128">①Mock支付</text><text x="211" y="114" font-size="11.5" fill="#94a3b8">客户/系统</text>
+      <text x="356" y="128">②商家接单</text><text x="356" y="114" font-size="11.5" fill="#94a3b8">自动/手动</text>
+      <text x="501" y="128">③调度方案生成</text><text x="501" y="114" font-size="11.5" fill="#94a3b8">人机匹配·路径规划</text>
+      <text x="646" y="128">④审批通过</text><text x="646" y="114" font-size="11.5" fill="#94a3b8">空管/管理员</text>
+      <text x="791" y="128">⑤下发机长起飞</text>
+      <text x="936" y="128">⑥确认送达</text><text x="936" y="114" font-size="11.5" fill="#94a3b8">机长</text>
+      <text x="1081" y="128">⑦结算+评价</text><text x="1081" y="114" font-size="11.5" fill="#94a3b8">系统/客户</text>
+    </g>
+
+    <!-- ===== 飞行计划轨 ===== -->
+    <g font-size="13">
+      <rect x="78" y="290" width="269" height="54" rx="9" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.4" stroke-dasharray="5 4"/>
+      <text x="212" y="322" text-anchor="middle" fill="#94a3b8" font-size="12.5">下单 / 接单阶段：飞行计划尚未生成</text>
+    </g>
+    <g font-size="14" font-weight="700" text-anchor="middle">
+      <rect x="368" y="290" width="124" height="54" rx="9" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/><text x="430" y="323" fill="#134e4a">待申报</text>
+      <rect x="513" y="290" width="124" height="54" rx="9" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/><text x="575" y="323" fill="#134e4a">待审批</text>
+      <rect x="658" y="290" width="124" height="54" rx="9" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/><text x="720" y="316" fill="#134e4a" font-size="13">已批准</text><text x="720" y="334" fill="#134e4a" font-size="12">待执行</text>
+      <rect x="803" y="290" width="124" height="54" rx="9" fill="#ccfbf1" stroke="#0f766e" stroke-width="2.2"/><text x="865" y="323" fill="#134e4a">执行中</text>
+      <rect x="948" y="290" width="124" height="54" rx="9" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.6"/><text x="1010" y="323" fill="#134e4a">已完成</text>
+      <rect x="1093" y="290" width="124" height="54" rx="9" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.3" stroke-dasharray="5 4"/><text x="1155" y="323" fill="#94a3b8" font-size="13">归档</text>
+    </g>
+    <g stroke="#0f766e" stroke-width="1.5" fill="none" marker-end="url(#arr)" opacity="0.85">
+      <line x1="492" y1="317" x2="511" y2="317"/>
+      <line x1="637" y1="317" x2="656" y2="317"/>
+      <line x1="782" y1="317" x2="801" y2="317"/>
+      <line x1="927" y1="317" x2="946" y2="317"/>
+      <line x1="1072" y1="317" x2="1091" y2="317"/>
+    </g>
+    <g font-size="11.5" fill="#0f766e" text-anchor="middle">
+      <text x="501" y="282">提交申报</text>
+      <text x="646" y="282">通过</text>
+      <text x="791" y="282">起飞</text>
+      <text x="936" y="282">降落</text>
+    </g>
+
+    <!-- 两轨 1:1 绑定虚线 -->
+    <g stroke="#0f766e" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.6">
+      <line x1="430" y1="194" x2="430" y2="288"/>
+      <line x1="575" y1="194" x2="575" y2="288"/>
+      <line x1="720" y1="194" x2="720" y2="288"/>
+      <line x1="865" y1="194" x2="865" y2="288"/>
+      <line x1="1010" y1="194" x2="1010" y2="288"/>
+    </g>
+    <text x="575" y="246" font-size="11.5" fill="#0f766e" text-anchor="middle">订单 ↔ 飞行计划 严格 1:1 绑定，阶段同步</text>
+
+    <!-- 驳回回退环 -->
+    <path d="M575,344 L575,404 L430,404 L430,346" fill="none" stroke="#dc2626" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrR)"/>
+    <text x="470" y="424" font-size="12.5" fill="#dc2626" text-anchor="middle">审批驳回：退回「待调度」，修改方案后重新申报（订单不取消）</text>
+
+    <!-- 取消分支 -->
+    <path d="M285,194 L200,446" fill="none" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
+    <rect x="138" y="448" width="124" height="50" rx="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="200" y="479" font-size="14" font-weight="700" fill="#64748b" text-anchor="middle">已取消</text>
+    <text x="300" y="440" font-size="12" fill="#64748b">拒单 / 起飞前客户取消</text>
+    <text x="300" y="456" font-size="11.5" fill="#94a3b8">触发 Mock 退款</text>
+
+    <!-- 异常/应急分支（从执行中向下） -->
+    <path d="M865,344 L865,446" fill="none" stroke="#ea580c" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrO)"/>
+    <text x="876" y="402" font-size="12.5" fill="#ea580c">偏航 / 闯入禁飞区 / 失联 / 故障</text>
+    <rect x="775" y="448" width="180" height="50" rx="9" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+    <text x="865" y="470" font-size="13.5" font-weight="700" fill="#9a3412" text-anchor="middle">违规记录 / 应急处置</text>
+    <text x="865" y="488" font-size="11.5" fill="#9a3412" text-anchor="middle">告警留痕 · 分级处置</text>
+    <!-- 恢复 -->
+    <path d="M775,462 C700,462 690,360 801,322" fill="none" stroke="#ea580c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrO)"/>
+    <text x="722" y="418" font-size="12" fill="#ea580c" text-anchor="middle">处置后恢复飞行</text>
+    <!-- 终止 -->
+    <line x1="955" y1="473" x2="1052" y2="473" stroke="#94a3b8" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrG)"/>
+    <rect x="1054" y="448" width="120" height="50" rx="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="1114" y="479" font-size="13.5" font-weight="700" fill="#64748b" text-anchor="middle">异常终止</text>
+    <text x="1003" y="462" font-size="11.5" fill="#64748b" text-anchor="end">无法恢复</text>
+
+    <!-- 仿真器工作区间标注 -->
+    <path d="M803,372 L803,364 L927,364 L927,372" fill="none" stroke="#1d4ed8" stroke-width="1.4"/>
+    <text x="865" y="386" font-size="12" fill="#1d4ed8" text-anchor="middle" font-weight="700">飞行仿真器工作区间：1 帧/秒推算坐标与电量 → WebSocket 推送双端</text>
+  </svg>
+
+  <!-- 领域实体分组 -->
+  <div style="margin-top:18px;">
+    <div style="font-size:16px;font-weight:700;color:#1e3a8a;border-bottom:2px solid #dbeafe;padding-bottom:6px;margin-bottom:12px;">领域实体分组（表名工作稿 · ● = P0 主干必做，○ = P1/P2 分批补）</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+
+      <div style="flex:1 1 220px;min-width:220px;border:1px solid #bfdbfe;border-radius:10px;padding:12px;background:#f8faff;">
+        <div style="font-weight:700;color:#1d4ed8;font-size:14px;margin-bottom:8px;">A 用户与组织（RBAC）</div>
+        <div style="font-size:13px;line-height:1.95;color:#334155;">
+          <div>● user 用户主表（统一登录）</div>
+          <div>● merchant 商家企业（资质/审核）</div>
+          <div>● role / permission / user_role / role_permission</div>
+          <div>● qualification 资质文件（到期预警）</div>
+          <div>● customer_profile 客户实名扩展</div>
+          <div>○ address_book 常用地址</div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 220px;min-width:220px;border:1px solid #99f6e4;border-radius:10px;padding:12px;background:#f5fdfb;">
+        <div style="font-weight:700;color:#0f766e;font-size:14px;margin-bottom:8px;">B 低空资源（人-机-场）</div>
+        <div style="font-size:13px;line-height:1.95;color:#334155;">
+          <div>● aircraft 飞行器台账（状态/健康度）</div>
+          <div>● vertiport 起降场/换电站</div>
+          <div>○ maintenance_record 维保故障</div>
+          <div>○ staff_schedule 排班</div>
+          <div>○ station_reservation 场站预约</div>
+          <div style="color:#94a3b8;font-size:12px;">充电桩并入场站字段，不另建表</div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 240px;min-width:240px;border:1px solid #bfdbfe;border-radius:10px;padding:12px;background:#f8faff;">
+        <div style="font-weight:700;color:#1d4ed8;font-size:14px;margin-bottom:8px;">C 业务流转（主链路）</div>
+        <div style="font-size:13px;line-height:1.95;color:#334155;">
+          <div>● order 订单</div>
+          <div>● flight_plan 飞行计划（含调度方案，1:1）</div>
+          <div>● approval_record 审批日志</div>
+          <div>● settlement 结算单</div>
+          <div>● payment_transaction 支付流水(Mock)</div>
+          <div>● violation_record 违规与处罚</div>
+          <div>○ emergency_event 应急事件</div>
+          <div>○ work_order 客服工单 / evaluation 评价投诉 / invoice 发票</div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 220px;min-width:220px;border:1px solid #99f6e4;border-radius:10px;padding:12px;background:#f5fdfb;">
+        <div style="font-weight:700;color:#0f766e;font-size:14px;margin-bottom:8px;">D 空域与监控</div>
+        <div style="font-size:13px;line-height:1.95;color:#334155;">
+          <div>● airspace 空域区（GeoJSON 多边形）</div>
+          <div>● flight_track 轨迹点（按月分区）</div>
+          <div>● geofence 电子围栏</div>
+          <div>○ weather_snapshot 气象快照(Mock)</div>
+          <div style="color:#94a3b8;font-size:12px;">点-多边形判定：偏航/闯区算法依据</div>
+        </div>
+      </div>
+
+      <div style="flex:1 1 220px;min-width:220px;border:1px solid #e2e8f0;border-radius:10px;padding:12px;background:#fbfcfe;">
+        <div style="font-weight:700;color:#475569;font-size:14px;margin-bottom:8px;">E 支撑体系</div>
+        <div style="font-size:13px;line-height:1.95;color:#334155;">
+          <div>● sys_config 系统参数</div>
+          <div>● operation_log 操作日志（≥6个月）</div>
+          <div>○ message_notification 消息通知</div>
+          <div>○ system_log 系统日志</div>
+          <div>○ external_api_log 外部接口留痕</div>
+          <div>○ backup_record 备份记录</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="margin-top:14px;font-size:12.5px;color:#64748b;border-top:1px dashed #cbd5e1;padding-top:8px;">
+    三条铁律：① 订单与飞行计划 1:1，状态由统一阶段枚举驱动，禁止两边各改各的；② 驳回是回退不是取消；③ 仿真器与未来真机共用 flight_track 写入入口，Mock 可平滑替换为真实 GCS/MQTT 数据。
+  </div>
+
+</div>
+</html>

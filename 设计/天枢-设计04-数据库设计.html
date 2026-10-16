@@ -1,0 +1,396 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:22px 24px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#1A1B1C;background:#fff;font-size:14px;line-height:1.55;">
+
+  <div style="border-left:5px solid #4F6B9A;padding-left:12px;margin-bottom:14px;">
+    <div style="font-size:20px;font-weight:700;color:#27395c;">天枢平台 — 数据库逻辑设计（设计稿 v0.4 · 滚动更新）</div>
+    <div style="font-size:12.5px;color:#5F6670;margin-top:4px;">MySQL 8.0 / InnoDB / utf8mb4；已完成：全局约定、订单/计划/轨迹/审批、用户权限组（8 张）、资源组（5 张）、空域组（4 张）、交易支撑 P0 表；下一步汇总 E-R 图与可执行 DDL</div>
+  </div>
+
+  <!-- 全局约定 -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:16px 0 10px;">一、全局建表约定（所有表统一遵守）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;background:#F7F7F5;padding:12px 14px;font-size:13px;line-height:2;">
+    1. 表名、字段名一律<b>小写+下划线</b>，见名知意，避开 MySQL 关键字（如 order→orders、user→users）。<br>
+    2. 每表标配四件套：<code>id</code>（BIGINT 自增主键）、<code>created_at</code>（创建时间）、<code>updated_at</code>（更新时间，ON UPDATE 自动刷新）、<code>deleted</code>（逻辑删除 0/1）。<br>
+    3. <b>状态/类型字段用 TINYINT + 代码层字典</b>，不存中文字符串（省空间、好索引、防脏数据）。<br>
+    4. <b>金额一律 DECIMAL(10,2)</b>，禁止 FLOAT/DOUBLE（浮点误差会算错钱）；坐标 DECIMAL，经度 10,6、纬度 9,6（6 位小数≈0.1 米），全库统一 GCJ-02。<br>
+    5. 时间用 DATETIME 不用 VARCHAR；手机号等敏感信息<b>入库加密/出参脱敏</b>；文件只存 URL 路径不存文件本体。<br>
+    6. 主外键体现约束；高频查询条件建组合索引并遵循最左前缀；历史/海量表（flight_track）按月分区。
+  </div>
+
+  <!-- orders -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 4px;">二、orders 订单表（P0 核心表）</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:8px;">订单是业务源头；与 flight_plan 严格 1:1。字段按业务分组：</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead>
+      <tr style="background:#eef2f9;color:#27395c;">
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">字段</th>
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">类型</th>
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">空/默认</th>
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">① 标识与归属</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">PK 自增</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">内部主键，不对外暴露</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>order_no</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(32)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · 唯一</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">业务单号（TS+日期+序列），客户可见、可凭此查询</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>customer_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · FK users.id</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">下单客户</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>merchant_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL · FK merchants.id</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">承接商家；接单/派单前允许为空</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>order_type</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 普通配送 2 应急配送 3 预留新业态</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>status</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0 · 索引</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">0待支付 1待接单 2待调度 3待审批 4待起飞 5飞行中 6已送达 7已完成 8已取消（仅 D3 状态机可改）</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">② 寄件 / 收件（下单时刻地址快照）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>sender_name / sender_phone</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(50/20)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">寄件人姓名/手机号（加密存储、脱敏展示）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>sender_address</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">寄件文本地址（高德逆地理回填）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>sender_lng / sender_lat</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,6)/(9,6)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">寄件 GCJ-02 经纬度，服务空域校验用</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>receiver_*（同上 4 个）</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">同上</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">收件人姓名/电话/地址/经纬度</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">③ 物品与时效</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>goods_type / goods_name</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(40/100)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">类型必填</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">物品类型（联动禁运品校验）、名称</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>weight_kg / volume_m3</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(8,2)/(8,3)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">重量必填 &gt;0</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">重量 kg、体积 m³；调度时校验飞行器载重</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>quantity</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">INT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">数量</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>goods_cert_url</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">物品合规证明文件路径</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>delivery_type</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 普通 2 加急（影响 urgent_fee）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>expect_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">预约配送时间；空=即时单</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">④ 费用快照（下单时冻结，反范式设计）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>base_fee</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0.00</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">基础配送费（按距离/重量/空域类型定价）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>airspace_fee</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0.00</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">空域使用费</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>urgent_fee</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0.00</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">加急费</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>discount_amount</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0.00</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">优惠券/折扣抵扣</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>total_amount</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">应收 = 基础+空域+加急−优惠（CHECK ≥0）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>pay_amount</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,2)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0.00</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">实付金额</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">⑤ 支付 / 取消 / 通用</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>pay_method / paid / paid_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT / TINYINT(1) / DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL/0/NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1微信 2支付宝 3对公（Mock）；是否支付；支付时间</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>cancel_reason / remark</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">取消原因（拒单/客户取消/异常终止）、备注</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>created_at / updated_at / deleted</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME / / TINYINT(1)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">自动维护</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">创建/更新时间、逻辑删除标记</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- 索引 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">三、索引设计（按三类列表查询场景倒推）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;">
+    <code>PRIMARY KEY(id)</code>　·　<code>UNIQUE uk_order_no(order_no)</code><br>
+    <code>idx_customer(customer_id, status, created_at)</code> — 客户"我的订单"按状态筛选<br>
+    <code>idx_merchant(merchant_id, status, created_at)</code> — 商家工作台待接单/调度列表<br>
+    <code>idx_status_created(status, created_at)</code> — 平台监管、待接单池、超时扫描<br>
+    <code>idx_expect_at(expect_at)</code> — 预约单定时扫描调度
+  </div>
+
+  <!-- 关系 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">四、orders 与邻表关系</div>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;">
+    <span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">users 客户</span><span style="color:#5F6670;">1 — N</span>
+    <span style="border:1.5px solid #4F6B9A;border-radius:6px;padding:6px 12px;background:#eef2f9;font-weight:700;color:#27395c;">orders</span>
+    <span style="color:#5F6670;">N — 1</span><span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">merchants 商家</span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;margin-top:10px;">
+    <span style="border:1.5px solid #4F6B9A;border-radius:6px;padding:6px 12px;background:#eef2f9;font-weight:700;color:#27395c;">orders</span>
+    <span style="color:#35705A;">1 — 1</span><span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">flight_plan 飞行计划</span>
+    <span style="color:#5F6670;margin-left:14px;">1 — N</span><span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">payment_transaction 支付流水</span>
+    <span style="color:#5F6670;">1 — 1</span><span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">settlement 结算单</span>
+    <span style="color:#5F6670;">1 — N</span><span style="border:1px solid #94a3b8;border-radius:6px;padding:6px 10px;background:#F7F7F5;">evaluation_complaint○</span>
+  </div>
+
+  <!-- 设计门道 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">五、六个设计门道（为什么这么建）</div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;line-height:2;">
+    1. <b>双编号</b>：自增 id 给数据库用（短、快），order_no 给人用（可读、不暴露平台单量、防遍历）。<br>
+    2. <b>状态用数字不用中文</b>：TINYINT 占 1 字节、索引快；中文释义放代码字典，界面再转中文。<br>
+    3. <b>钱用 DECIMAL</b>：FLOAT 会出现 0.1+0.2≠0.3 的误差，账目必须精确到分。<br>
+    4. <b>费用在下单瞬间"冻结"成快照</b>：事后平台调价不影响老订单，这就是需求报告允许的反范式。<br>
+    5. <b>寄收地址冗余在订单里</b>：而不是只存地址簿 id——客户后来改了地址簿，历史订单仍保留下单时的原样。<br>
+    6. <b>订单表保持克制</b>：航线/人机方案在 flight_plan，每次支付退款在 payment_transaction，月结账目在 settlement，订单只存结果，不背所有数据。
+  </div>
+
+  <!-- ============ flight_plan ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">六、flight_plan 飞行计划表（P0 · 含调度方案 · 与 orders 1:1）</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:8px;">落实 D-15：调度/申报/审批/执行四阶段字段分批写入，一行记录走完一生；状态机仅 D3 service 可改</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead>
+      <tr style="background:#e7f3f0;color:#174e44;">
+        <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">字段</th>
+        <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">类型</th>
+        <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">空/默认</th>
+        <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">① 标识与关联</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">PK 自增</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">内部主键</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>plan_no</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(32)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · 唯一</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">飞行计划编号</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>order_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · 唯一 · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">关联订单，<b>唯一约束从数据库层强制 1:1</b></td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>merchant_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">冗余归属商家，免去连表查订单</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>status</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">0待申报 1待审批 2已批准待执行 3执行中 4已完成 5已驳回 6已取消</td></tr>
+
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">② 调度方案（调度阶段写入）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>aircraft_id / pilot_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">指派飞行器 / 机长（users.id）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>takeoff_vertiport_id / landing_vertiport_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">起飞 / 降落（换电）场站</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>route_json</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">JSON</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">有序航点数组 [{lng,lat}]（GCJ-02），高德直接画航线，后端逐点合规校验</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>route_distance_m / est_duration_sec</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">INT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">航程（米）/ 预计时长（秒），续航校验依据</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>dispatch_by / dispatched_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT / DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度员、调度完成时间</td></tr>
+
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">③ 飞行要素（申报表）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>task_name / purpose</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(100/255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">任务名称、飞行目的</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>plan_start_at / plan_end_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">计划起止时间（同时段同空域冲突检测）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>altitude_m / cruise_speed</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">INT / DECIMAL(5,1)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">申报高度（限高校验）、巡航速度 m/s</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>weather_json</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">JSON</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">申报时气象快照（Mock），留证用</td></tr>
+
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">④ 审批（当前结果快照；完整多轮流水在 approval_record）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>submitted_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">提交申报时间</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>approve_result / approved_by / approved_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT/BIGINT/DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 通过 2 驳回；审批人、审批时间</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>approve_opinion / reject_reason</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(500)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">审批意见 / 驳回原因（退回调度修改）</td></tr>
+
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">⑤ 执行实况（仿真器/机长回填）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>assigned_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">下发机长时间</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>actual_takeoff_at / actual_landing_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">实际起飞/降落时间</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>current_lng / current_lat</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,6)/(9,6)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><b>最新一帧位置快照</b>（列表直接展示，不扫轨迹大表）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>current_altitude / current_speed / current_battery</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL/TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">最新高度、速度、电量%</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>last_report_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL · 索引</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">最后遥测时间，配合 Redis 心跳判在线/失联</td></tr>
+
+      <tr style="background:#cdebe5;font-weight:700;"><td colspan="4" style="border:1px solid #bfe0d9;padding:5px 8px;">⑥ 通用</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>remark / created_at / updated_at / deleted</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(255)/…</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">自动维护</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">备注与四件套</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #bfe0d9;border-radius:8px;padding:10px 14px;margin-top:8px;background:#f3faf8;">
+    <b>索引：</b>PRIMARY(id) · UNIQUE uk_plan_no(plan_no) · UNIQUE uk_order(order_id) · idx_merchant_status(merchant_id,status) · idx_pilot_status(pilot_id,status) · idx_aircraft(aircraft_id) · idx_status_start(status,plan_start_at)（待审批列表/时空冲突）· idx_last_report(last_report_at)（在线扫描）
+  </div>
+
+  <!-- ============ flight_track ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">七、flight_track 飞行轨迹表（P0 · 海量窄表 · 按月 RANGE 分区）</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:8px;">一行=一个坐标帧，仿真器 1 帧/秒批量写入；真机 GCS 未来走同一入口（source 区分）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:760px;">
+    <thead>
+      <tr style="background:#eef2f9;color:#27395c;">
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">字段</th>
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">类型</th>
+        <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED 自增</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">与 track_time 组成复合主键（分区表要求分区键进主键）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>plan_id / aircraft_id / order_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">计划/飞行器/订单冗余 id，免连表过滤</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>lng / lat</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(10,6)/(9,6)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">GCJ-02 坐标</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>altitude / speed / direction</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DECIMAL(7,2)/(5,2)/SMALLINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">高度 m、地速 m/s、航向角 0–359°</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>battery</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">电量%</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>track_time</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME(3)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">毫秒级帧时间；<b>分区键</b></td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>is_violation / violation_type</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT(1)/VARCHAR(40)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">该点是否偏航/闯区及类型，后端实时打标，取证用</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>source</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT 默认 1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 仿真器 2 真机 GCS（预留，平滑替换）</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:13px;border:1px solid #d4dbe8;border-radius:8px;padding:10px 14px;margin-top:8px;background:#f7f9fc;line-height:1.9;">
+    <b>索引与分区：</b>PRIMARY KEY(id, track_time) · KEY idx_plan_time(plan_id, track_time)（轨迹回放主查询，最左匹配）· KEY idx_aircraft_time(aircraft_id, track_time)；按月 RANGE 分区，定时任务每月预建下月分区，过期月份整分区 DROP 即归档，秒级完成。<br>
+    <b>分区 DDL 示意：</b><code style="font-size:12px;">PARTITION BY RANGE (TO_DAYS(track_time)) (PARTITION p202609 VALUES LESS THAN (TO_DAYS('2026-10-01')), PARTITION p202610 VALUES LESS THAN (TO_DAYS('2026-11-01')), … )</code>
+  </div>
+
+  <!-- ============ approval_record ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">八、approval_record 审批流水表（P0 · 小表）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;">
+    字段：<code>id</code> PK · <code>plan_id</code>（FK，索引）· <code>approver_id</code> 审批人 · <code>result</code> TINYINT（1通过 2驳回）· <code>opinion</code> VARCHAR(500) · <code>created_at</code>。<br>
+    作用：驳回→修改→重提会产生多轮审批，本表保留<b>完整审批历史</b>，flight_plan 只存当前结果；计划书要求的"审批日志（审批人/时间/意见）"由它落地。
+  </div>
+
+  <!-- 本批门道 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">九、本批六个设计门道</div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;line-height:2;">
+    1. <b>1:1 靠数据库强制</b>：flight_plan.order_id 加 UNIQUE，一个订单永远只能有一个计划，不靠口头约定。<br>
+    2. <b>一行走完一生</b>：调度→申报→审批→执行四阶段分批填字段（方案 A 落地），不需要在多张方案表之间倒腾。<br>
+    3. <b>热快照 + 冷流水分离</b>：最新位置/电量冗余在 flight_plan.current_*（列表秒出），全量坐标在 flight_track（回放/取证），各查各的。<br>
+    4. <b>航线用 JSON 字段</b>：航点数量不固定，JSON 最灵活，前端高德拿过去直接画 Polyline，后端逐点做合规校验，不必为航点单建一张表。<br>
+    5. <b>轨迹表为"写"而生</b>：窄字段、批量插入、复合主键带分区键、按月分区；近 2 个月在线、更早整月归档（对应计划书历史数据归档要求）。<br>
+    6. <b>审批留痕双保险</b>：当前结果在 flight_plan 上方便列表展示，完整多轮历史在 approval_record 可审计。
+  </div>
+
+  <!-- ============ 用户与权限组 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">十、users 用户主表（P0 · 全角色统一登录）</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:8px;">落实 D-13：不按角色各建用户表；user_type 粗分身份，细粒度功能权限交给第十一部分 RBAC</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">字段</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">类型</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">空/默认</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">① 账号与认证</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">PK 自增</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">用户主键</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>username</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(50)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · 唯一</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">登录账号（手机号或自定义）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>password_hash</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(100)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BCrypt 哈希，只存哈希、永不可逆</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>user_type</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1个人客户 2企业客户 3商家员工 4平台管理员 5空管 6运维</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>status / frozen_reason</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT/VARCHAR(255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 1</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1正常 2冻结 3注销；冻结原因（无证运营/违规飞行等）</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">② 实名与联系（敏感信息加密存储）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>real_name</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(50)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">真实姓名</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>phone_cipher</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(100)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">手机号 AES 密文（可解密、出参脱敏 138****1234）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>phone_digest</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">CHAR(64)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NOT NULL · 唯一</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">手机号 HMAC-SHA256 摘要，用于登录查找/查重（密文不能直接建唯一索引）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>email_cipher / id_card_cipher</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(100)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">邮箱、身份证号 AES 密文</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>realname_status</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">默认 0</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">0未认证 1审核中 2已认证 3驳回</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>gender / avatar_url</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT/VARCHAR(255)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">性别 0未知1男2女；头像 URL</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td colspan="4" style="border:1px solid #d4dbe8;padding:5px 8px;">③ 归属与登录痕迹</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>merchant_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT UNSIGNED</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家员工归属企业（客户/平台角色为空），数据隔离的关键</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>last_login_at / last_login_ip</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME/VARCHAR(45)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">NULL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">最后登录时间/IP（兼容 IPv6），审计用</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>created_at / updated_at / deleted</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">—</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">自动维护</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">四件套</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:13px;border:1px solid #d4dbe8;border-radius:8px;padding:10px 14px;margin-top:8px;background:#f7f9fc;line-height:1.8;">
+    <b>索引：</b>PRIMARY(id) · UNIQUE uk_username(username) · UNIQUE uk_phone_digest(phone_digest) · KEY idx_merchant(merchant_id) · KEY idx_type_status(user_type,status)
+  </div>
+
+  <!-- merchants + customer_profile -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 4px;">十一、merchants 商家企业表 & customer_profile 客户扩展表（P0）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">表</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">字段</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">类型</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#dbe6f6;font-weight:700;"><td rowspan="9" style="border:1px solid #d4dbe8;padding:5px 8px;vertical-align:top;">merchants<br><span style="font-weight:400;font-size:12px;color:#5F6670;">商家企业（入驻审核）</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>id / merchant_no</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT / VARCHAR(32)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">主键、商家编号（唯一）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>merchant_name / unified_credit_code</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(100/18)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">企业名称、统一社会信用代码（唯一）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>contact_user_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT · FK users.id</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家管理员账号</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>legal_person / contact_phone_cipher</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(50/100)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">法人、联系电话（加密）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>service_area_json</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">JSON</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">服务覆盖空域/区域（下单时校验是否在服务范围）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>pricing_json</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">JSON</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">收费标准（重量/距离/空域类型定价，费用试算用）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>audit_status</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT 默认0</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">0待提交 1审核中 2通过 3驳回 4停用注销</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>audit_opinion / audited_by / audited_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">VARCHAR(500)/BIGINT/DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">审核意见/人/时间，驳回原因必填</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>expire_at / status / 四件套</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">DATETIME/TINYINT/—</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">资质到期时间（7 天预警扫描）；1正常2暂停3注销</td></tr>
+
+      <tr style="background:#dbe6f6;font-weight:700;"><td rowspan="2" style="border:1px solid #d4dbe8;padding:5px 8px;vertical-align:top;">customer_profile<br><span style="font-weight:400;font-size:12px;color:#5F6670;">客户扩展（1:1 users）</span></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>user_id</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">BIGINT · 唯一 · FK</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">对应用户</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>customer_type / enterprise_name / credit_code / verified_at</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">TINYINT/VARCHAR(100/18)/DATETIME</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1个人 2企业；企业名称与信用代码（企业客户）；认证时间</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- RBAC -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 4px;">十二、RBAC 权限五表（P0 · 经典模型）</div>
+  <div style="font-size:12.5px;color:#5F6670;margin-bottom:8px;">用户 N—N 角色（user_role），角色 N—N 权限（role_permission）；权限自引用 parent_id 成树，对应计划书"角色-功能树形配置"</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:820px;">
+    <thead><tr style="background:#e7f3f0;color:#174e44;">
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">表</th>
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">关键字段</th>
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">说明</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>role</code> 角色</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">id、role_code 唯一、role_name、role_scope（1平台级2商家级3客户级）、built_in 内置不可删、sort</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">预置 9 个角色见下；商家可自建子角色</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>permission</code> 权限点</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">id、parent_id（自关联树）、perm_code 唯一（如 order:create）、perm_type 1菜单2按钮3接口、path/icon/sort</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">一棵权限树同时驱动左侧菜单、按钮显隐和后端接口鉴权</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>user_role</code> 用户-角色</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">id、user_id、role_id、granted_by、created_at；UNIQUE(user_id,role_id)</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">一人可兼多角色（如既是调度员又是机长）</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>role_permission</code> 角色-权限</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">id、role_id、permission_id；UNIQUE(role_id,permission_id)</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">勾选父权限级联选中全部子权限</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;font-size:12.5px;">
+    <span style="border:1px solid #94a3b8;border-radius:20px;padding:3px 10px;background:#F7F7F5;">平台管理员·平台级</span>
+    <span style="border:1px solid #94a3b8;border-radius:20px;padding:3px 10px;background:#F7F7F5;">空管监管员·平台级</span>
+    <span style="border:1px solid #94a3b8;border-radius:20px;padding:3px 10px;background:#F7F7F5;">平台运维·平台级</span>
+    <span style="border:1px solid #4F6B9A;border-radius:20px;padding:3px 10px;background:#eef2f9;">商家管理员·商家级</span>
+    <span style="border:1px solid #4F6B9A;border-radius:20px;padding:3px 10px;background:#eef2f9;">调度员·商家级</span>
+    <span style="border:1px solid #4F6B9A;border-radius:20px;padding:3px 10px;background:#eef2f9;">财务·商家级</span>
+    <span style="border:1px solid #4F6B9A;border-radius:20px;padding:3px 10px;background:#eef2f9;">机长·商家级</span>
+    <span style="border:1px solid #4F6B9A;border-radius:20px;padding:3px 10px;background:#eef2f9;">设备运维员·商家级</span>
+    <span style="border:1px solid #94a3b8;border-radius:20px;padding:3px 10px;background:#F7F7F5;">客户·客户级</span>
+  </div>
+
+  <!-- qualification -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 4px;">十三、qualification 资质文件表（P0 · 商家/人员复用）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;">
+    字段：<code>id</code> PK · <code>subject_type</code>（1商家 2人员 <b>3 飞行器</b>）+ <code>subject_id</code>（merchants.id / users.id / aircraft.id，多态归属）· <code>qual_type</code>（商家：营业执照/空域运营许可；人员：驾驶证/培训合格证；飞行器：适航证）· <code>qual_name / file_url</code> · <code>issue_at / expire_at</code> · <code>status</code>（1有效 2即将到期 3已过期 4驳回）· <code>audited_by/at/opinion</code> · 四件套。<br>
+    <b>索引：</b>idx_subject(subject_type,subject_id)（查某主体全部资质）· idx_expire(expire_at)（每日扫描：商家提前 7 天、人员提前 15 天预警）。
+  </div>
+
+  <!-- 本组门道 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">十四、本组六个设计门道</div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;line-height:2;">
+    1. <b>全角色一张 users 表</b>：登录/JWT/冻结逻辑只写一套；user_type 管"你是谁"，RBAC 管"你能做什么"，两层不打架。<br>
+    2. <b>手机号加密又能查的标准做法</b>：AES 密文列负责解密展示（脱敏），另存 HMAC 摘要列负责精确查找和唯一约束——AES 带随机向量每次密文不同，不能直接拿密文查重。<br>
+    3. <b>RBAC 五表是行业通用解</b>：权限树一套编码同时控制菜单、按钮和后端接口，前后端各拦一道。<br>
+    4. <b>role_scope 管数据范围</b>：平台级看全量、商家级查询强制带 merchant_id、客户级只看本人——这就是计划书"数据层面按角色划分可见范围"的落地。<br>
+    5. <b>资质表多态复用</b>：subject_type+subject_id 一张表同时服务商家和机长，到期预警只靠一条 expire_at 索引扫描。<br>
+    6. <b>密码只存 BCrypt 哈希</b>：数据库泄露也无法还原明文；连输错 5 次锁定的逻辑放 Redis 计数，不污染用户表。
+  </div>
+
+  <!-- ============ 资源组 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">十五、资源组：aircraft / vertiport / maintenance_record / staff_schedule / station_reservation</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:860px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">表</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">关键字段</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明 / 枚举 / 索引</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#dbe6f6;font-weight:700;"><td style="border:1px solid #d4dbe8;padding:6px 8px;">aircraft<br>飞行器台账 ●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">aircraft_no 唯一、merchant_id FK、brand/model/serial_no、endurance_min 续航分钟、max_load_kg 载重、max_speed、purchase_at、current_vertiport_id、status、health_score、total_flight_min、task_count、fault_count、last/next_maintain_at、current_lng/lat、battery、online、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">状态：1闲置 2执行中 3充换电 4维保中 5故障离线；健康度 ≥80 绿/60–79 黄/&lt;60 红；适航证走 qualification(subject_type=3)。索引：uk_no、idx_merchant_status、idx_next_maintain（维保提醒）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;">vertiport<br>场站（起降/换电）●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">station_no 唯一、station_name、station_type、lng/lat、address、merchant_id（公共场站为空）、capacity、charger_total/available、occupied_count、service_aircraft_types、status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">类型：1起降场 2换电站 3综合；状态 1开放 2维护 3关闭；充电桩数量做预约/调度容量校验。索引：uk_no、idx_merchant、idx_status</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;">maintenance_record<br>维保故障 ○</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">aircraft_id FK、record_type、fault_type、description、photo_urls JSON、handler_id、started_at/finished_at、result、status、flight_minutes_at</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">类型 1定期维保 2故障维修 3巡检；状态 1待处理 2处理中 3已完成；完成后回写 aircraft 健康度与下次维保时间。索引 idx_aircraft、idx_status</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;">staff_schedule<br>排班 ○</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">user_id、merchant_id、shift_date、shift_type、start/end_time、responsible_area、bound_aircraft_id、status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">班次 1早2中3晚4全天；UNIQUE(user_id,shift_date,shift_type) 从库层防同人同时段重复排班；索引 idx_merchant_date</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;">station_reservation<br>场站预约 ○</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">reservation_no 唯一、station_id、merchant_id、user_id、aircraft_id、purpose、start_at/end_at、status、audit_opinion、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">用途 1起降 2换电 3充电；状态 1待审2通过3驳回4完成5取消；idx_station_time 支撑同时段容量冲突校验</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 空域组 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">十六、空域组：airspace / geofence / violation_record / weather_snapshot</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:860px;">
+    <thead><tr style="background:#e7f3f0;color:#174e44;">
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">表</th>
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">关键字段</th>
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;text-align:left;">说明 / 枚举 / 索引</th>
+    </tr></thead>
+    <tbody>
+      <tr style="background:#cdebe5;font-weight:700;"><td style="border:1px solid #bfe0d9;padding:6px 8px;">airspace<br>空域区 ●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">airspace_no 唯一、airspace_name、airspace_type、source、geometry_json（GeoJSON 多边形/圆，GCJ-02）、altitude_min/max、control_start/end_at、control_reason、region_name、status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">类型 1禁飞(红) 2限飞(黄) 3可飞(绿) 4临时管制；source 1空管同步(Mock) 2平台自绘；静态空域缓存 Redis；偏航/闯区由 service 层"点在多边形内"射线法判定。索引 idx_type_status、idx_control_time</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;">geofence<br>电子围栏 ●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">fence_name、merchant_id（空=平台）、geometry_json、fence_type、altitude_limit、warn_distance_m、status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">类型 1限入 2限出 3接近告警；与 airspace 分工：法定/平台空域 vs 商家自定义运营围栏</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;">violation_record<br>违规与处罚 ●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">violation_no 唯一、merchant_id、order_id/plan_id/aircraft_id/pilot_id、violation_type、lng/lat、track_id、evidence_urls JSON、violation_time、description、penalty_type/amount/days/reason、penalty_by/at、notice_url、status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">违规 1闯禁飞区 2偏航 3超时 4超高 5无证 6其他；处罚 1警告 2罚款 3暂停服务 4永久封禁；状态 1未处理 2处理中 3已归档。索引 idx_merchant_status、idx_time</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;">weather_snapshot<br>气象快照 ○(Mock)</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">region_name、lng/lat 网格点、wind_speed、wind_direction、visibility_m、temperature、weather_desc、warning_level、fetched_at、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">Mock 适配层每 10 分钟生成/刷新；预警 0无 1蓝 2黄 3橙 4红；申报时把当时值快照进 flight_plan.weather_json</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 交易与支撑 P0 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">十七、交易闭环 P0 小表（配合 orders）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:860px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">表</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">关键字段</th>
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">说明</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>settlement</code> 结算单 ●</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">settlement_no 唯一、order_id 唯一(1:1)、merchant_id、customer_id、各项费用与 platform_fee 平台费、pay_amount、status、reconciled_at、invoice_status、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">状态 1待结算 2已结算 3对账中 4有差异；送达后由系统自动生成，对账差异走工单</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:6px 8px;"><code>payment_transaction</code> 支付流水 ●(Mock)</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">txn_no 唯一、order_id、user_id、amount、direction、pay_method、channel_txn_no、status、paid_at、raw_resp JSON、四件套</td><td style="border:1px solid #E4E3DD;padding:6px 8px;">direction 1支付 2退款；一个订单可有多条（支付失败/退款留痕），Mock 适配器生成假三方流水</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- P1/P2 清单 -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 4px;">十八、P1/P2 预留表（本期建空表结构，功能后补，不丢需求）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;background:#F7F7F5;padding:12px 14px;font-size:13px;line-height:2;">
+    <b>P1：</b>address_book 常用地址 · evaluation_complaint 评价投诉 · emergency_event 应急事件 · work_order 客服工单 · message_notification 消息通知 · sys_config 系统参数 · operation_log 操作日志（切面自动写，留存≥6 个月）<br>
+    <b>P2：</b>system_log 系统日志 · external_api_log 外部接口日志 · backup_record 备份记录 · help_article 帮助文章 · coupon 优惠券 · invoice 发票（也可先用 settlement 字段承载）<br>
+    这些表在最终 DDL 中一并建好结构，字段随对应迭代细化，保证"预留扩展、不改主干"。
+  </div>
+
+  <!-- 本组门道 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:18px 0 8px;">十九、本组设计门道</div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:12px 14px;font-size:13px;line-height:2;">
+    1. <b>资源台账与实时状态分离</b>：aircraft/vertiport 存静态台账 + 最新状态快照，高频心跳在 Redis，落库节奏由定时任务控制，避免每秒刷库。<br>
+    2. <b>健康度是算出来的不是拍的</b>：维保记录、故障次数、累计飞行时长共同计算 health_score，前端按红黄绿渲染。<br>
+    3. <b>冲突靠唯一索引兜底</b>：排班重复、场站同时段超额，业务层先校验、数据库唯一约束再兜底，双保险。<br>
+    4. <b>空域几何与业务数据分离</b>：airspace 只描述"哪块空域、什么规则"，是否违规是实时计算结果并落到 violation_record + 轨迹点打标，不回写污染空域表。<br>
+    5. <b>资金两张表分工</b>：orders/settlement 记"该收/该结多少"（结果），payment_transaction 记"每次支付退款动作"（流水），对账时以流水核对结果。
+  </div>
+
+  <div style="margin-top:16px;font-size:12px;color:#5F6670;border-top:1px solid #E4E3DD;padding-top:8px;">P0 表结构全部完成：共 19 张 P0 表（含 RBAC 五表）+ 4 张已细化的 P1 表（维保/排班/预约/气象）+ 一批 P1/P2 预留表。下一步：① 汇总全库 E-R 关系图；② 输出可直接执行的 MySQL 建表 DDL 脚本（含索引、轨迹分区、初始角色/权限/温州空域 Mock 数据）</div>
+</div>
+</html>

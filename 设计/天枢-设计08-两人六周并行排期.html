@@ -1,0 +1,175 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:22px 24px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#1A1B1C;background:#fff;font-size:14px;line-height:1.55;">
+
+  <div style="border-left:5px solid #4F6B9A;padding-left:12px;margin-bottom:12px;">
+    <div style="font-size:20px;font-weight:700;color:#27395c;">天枢平台 — 两人 6 周并行开发排期（设计08）</div>
+    <div style="font-size:12.5px;color:#5F6670;margin-top:4px;">甲：前端（Vue/高德/大屏）｜乙：后端（Flask/MySQL/仿真器/WS）｜6 周冲刺 + 2 周缓冲 = 2 个月总工期｜每周一个可演示里程碑，周六联调验收</div>
+  </div>
+
+  <!-- ============ 一、里程碑 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:14px 0 8px;">一、七个里程碑（每个都能当场演示，不攒到最后）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;">
+    <div style="flex:1 1 150px;border:1px solid #d4dbe8;border-radius:8px;padding:8px 10px;background:#f4f7fb;"><b style="color:#27395c;font-size:13px;">M0 开工</b><br><span style="font-size:12px;color:#5F6670;">第0天：跑通DDL、双端骨架能启动</span></div>
+    <div style="flex:1 1 150px;border:1px solid #d4dbe8;border-radius:8px;padding:8px 10px;background:#f4f7fb;"><b style="color:#27395c;font-size:13px;">M1 能登录</b><br><span style="font-size:12px;color:#5F6670;">W1末：三角色登录分流、动态菜单</span></div>
+    <div style="flex:1 1 150px;border:1px solid #d4dbe8;border-radius:8px;padding:8px 10px;background:#f4f7fb;"><b style="color:#27395c;font-size:13px;">M2 客户闭环</b><br><span style="font-size:12px;color:#5F6670;">W2末：下单→Mock支付→看订单</span></div>
+    <div style="flex:1 1 150px;border:1px solid #d4dbe8;border-radius:8px;padding:8px 10px;background:#f4f7fb;"><b style="color:#27395c;font-size:13px;">M3 调度闭环</b><br><span style="font-size:12px;color:#5F6670;">W3末：接单→方案→审批→下发</span></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+    <div style="flex:1 1 220px;border:1px solid #bfe0d9;border-radius:8px;padding:8px 10px;background:#f0f6f3;"><b style="color:#174e44;font-size:13px;">M4 实时飞行闭环（核心）</b><br><span style="font-size:12px;color:#5F6670;">W4末：起飞→地图上飞→告警→降落</span></div>
+    <div style="flex:1 1 150px;border:1px solid #d4dbe8;border-radius:8px;padding:8px 10px;background:#f4f7fb;"><b style="color:#27395c;font-size:13px;">M5 全功能</b><br><span style="font-size:12px;color:#5F6670;">W5末：全部 P0 页面+接口跑通</span></div>
+    <div style="flex:1 1 150px;border:1px solid #e0d3b8;border-radius:8px;padding:8px 10px;background:#fbf7ee;"><b style="color:#7a5a1f;font-size:13px;">M6 可交付</b><br><span style="font-size:12px;color:#5F6670;">W6末：测试达标+演示彩排+录屏</span></div>
+  </div>
+
+  <!-- ============ 二、甘特图 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">二、六周并行甘特图（色块=本周任务，◆=周六里程碑验收）</div>
+  <svg viewBox="0 0 1280 330" width="100%" xmlns="http://www.w3.org/2000/svg" style="border:1px solid #E4E3DD;border-radius:8px;background:#fff;">
+    <!-- week grid -->
+    <g font-family="Microsoft YaHei" font-size="12" fill="#5F6670" text-anchor="middle">
+      <line x1="110" y1="26" x2="110" y2="270" stroke="#E4E3DD"/>
+      <!-- columns: w=191.67 -->
+      <text x="205.8" y="18">第1周</text><text x="397.5" y="18">第2周</text><text x="589.2" y="18">第3周</text>
+      <text x="780.8" y="18">第4周（核心）</text><text x="972.5" y="18">第5周</text><text x="1164.2" y="18">第6周</text>
+      <g stroke="#EFEFEA">
+        <line x1="301.7" y1="26" x2="301.7" y2="270"/><line x1="493.3" y1="26" x2="493.3" y2="270"/>
+        <line x1="685" y1="26" x2="685" y2="270"/><line x1="876.7" y1="26" x2="876.7" y2="270"/>
+        <line x1="1068.3" y1="26" x2="1068.3" y2="270"/>
+      </g>
+      <line x1="1260" y1="26" x2="1260" y2="270" stroke="#E4E3DD"/>
+    </g>
+    <!-- lane labels -->
+    <g font-family="Microsoft YaHei" font-size="12.5" fill="#27395c" text-anchor="middle">
+      <rect x="6" y="40" width="98" height="86" rx="6" fill="#eef2f9" stroke="#c7d3e8"/>
+      <text x="55" y="78">甲 · 前端</text><text x="55" y="96" font-size="10.5" fill="#5F6670">Vue/高德/大屏</text>
+      <rect x="6" y="140" width="98" height="86" rx="6" fill="#f0f6f3" stroke="#bfe0d9"/>
+      <text x="55" y="178">乙 · 后端</text><text x="55" y="196" font-size="10.5" fill="#5F6670">Flask/DB/仿真</text>
+    </g>
+    <!-- 甲 bars -->
+    <g font-family="Microsoft YaHei" font-size="11.5" fill="#fff">
+      <rect x="114" y="44" width="183.7" height="78" rx="6" fill="#4F6B9A"/>
+      <text x="124" y="64">W1 工程骨架+D1</text><text x="124" y="82" font-size="10.5">Vite/TS/Pinia/Router</text><text x="124" y="98" font-size="10.5">两套布局·登录·动态菜单</text><text x="124" y="114" font-size="10.5">通用表格/字典组件</text>
+      <rect x="305.7" y="44" width="183.7" height="78" rx="6" fill="#4F6B9A"/>
+      <text x="315.7" y="64">W2 客户门户 C1-C8</text><text x="315.7" y="82" font-size="10.5">高德选点下单+费用试算</text><text x="315.7" y="98" font-size="10.5">订单列表/详情·地址簿</text><text x="315.7" y="114" font-size="10.5">WS composable 预埋</text>
+      <rect x="497.3" y="44" width="183.7" height="78" rx="6" fill="#4F6B9A"/>
+      <text x="507.3" y="64">W3 调度/审批/机长台</text><text x="507.3" y="82" font-size="10.5">M-31 调度工作台三栏</text><text x="507.3" y="98" font-size="10.5">航线绘制·M-34审批台</text><text x="507.3" y="114" font-size="10.5">M-2x订单·M-35机长台</text>
+      <rect x="689" y="44" width="183.7" height="78" rx="6" fill="#3d5887"/>
+      <text x="699" y="64">W4 实时飞行（核心）</text><text x="699" y="82" font-size="10.5">飞机Marker沿轨迹移动</text><text x="699" y="98" font-size="10.5">C-4实时跟踪·M-61大屏</text><text x="699" y="114" font-size="10.5">告警滚动·快进控制面板</text>
+      <rect x="880.7" y="44" width="183.7" height="78" rx="6" fill="#4F6B9A"/>
+      <text x="890.7" y="64">W5 管理线+驾驶舱</text><text x="890.7" y="82" font-size="10.5">空域一张图/资源/结算</text><text x="890.7" y="98" font-size="10.5">系统管理页面</text><text x="890.7" y="114" font-size="10.5">M-11 驾驶舱 ECharts</text>
+      <rect x="1072.3" y="44" width="183.7" height="78" rx="6" fill="#9A6A2F"/>
+      <text x="1082.3" y="64">W6 联调打磨</text><text x="1082.3" y="82" font-size="10.5">全链路回归·兼容适配</text><text x="1082.3" y="98" font-size="10.5">演示动线彩排×3</text><text x="1082.3" y="114" font-size="10.5">录屏兜底·部署文档</text>
+    </g>
+    <!-- 乙 bars -->
+    <g font-family="Microsoft YaHei" font-size="11.5" fill="#fff">
+      <rect x="114" y="144" width="183.7" height="78" rx="6" fill="#35705A"/>
+      <text x="124" y="164">W1 骨架+D1+地基</text><text x="124" y="182" font-size="10.5">跑DDL·工厂/蓝图/统一响应</text><text x="124" y="198" font-size="10.5">JWT/RBAC权限树</text><text x="124" y="214" font-size="10.5">geo几何+4个adapter</text>
+      <rect x="305.7" y="144" width="183.7" height="78" rx="6" fill="#35705A"/>
+      <text x="315.7" y="164">W2 D2订单+造数</text><text x="315.7" y="182" font-size="10.5">下单/试算/取消/地址簿</text><text x="315.7" y="198" font-size="10.5">支付adapter回调</text><text x="315.7" y="214" font-size="10.5">L2造数脚本v1</text>
+      <rect x="497.3" y="144" width="183.7" height="78" rx="6" fill="#35705A"/>
+      <text x="507.3" y="164">W3 D3状态机+调度</text><text x="507.3" y="182" font-size="10.5">双轨状态机(唯一入口)</text><text x="507.3" y="198" font-size="10.5">推荐/方案/申报/审批</text><text x="507.3" y="214" font-size="10.5">下发机长·资质校验</text>
+      <rect x="689" y="144" width="183.7" height="78" rx="6" fill="#2a5c49"/>
+      <text x="699" y="164">W4 仿真器+WS（核心）</text><text x="699" y="182" font-size="10.5">单任务→多任务tick</text><text x="699" y="198" font-size="10.5">轨迹批量写+WS三房间</text><text x="699" y="214" font-size="10.5">5种场景注入·违规落库</text>
+      <rect x="880.7" y="144" width="183.7" height="78" rx="6" fill="#35705A"/>
+      <text x="890.7" y="164">W5 D4/D8/D9</text><text x="890.7" y="182" font-size="10.5">空域/资源CRUD与审核</text><text x="890.7" y="198" font-size="10.5">结算对账·违规处罚</text><text x="890.7" y="214" font-size="10.5">用户角色参数日志</text>
+      <rect x="1072.3" y="144" width="183.7" height="78" rx="6" fill="#9A6A2F"/>
+      <text x="1082.3" y="164">W6 测试达标</text><text x="1082.3" y="182" font-size="10.5">pytest≥70%·批量插1000</text><text x="1082.3" y="198" font-size="10.5">接口≤1s压测</text><text x="1082.3" y="214" font-size="10.5">造数终版·一键部署脚本</text>
+    </g>
+    <!-- milestones -->
+    <g font-family="Microsoft YaHei" font-size="11" text-anchor="middle">
+      <line x1="110" y1="238" x2="1260" y2="238" stroke="#c9cdd6"/>
+      <g fill="#9A6A2F">
+        <polygon points="297.7,232 305.7,240 297.7,248 289.7,240"/><polygon points="489.3,232 497.3,240 489.3,248 481.3,240"/>
+        <polygon points="681,232 689,240 681,248 673,240"/><polygon points="872.7,232 880.7,240 872.7,248 864.7,240"/>
+        <polygon points="1064.3,232 1072.3,240 1064.3,248 1056.3,240"/><polygon points="1256,232 1264,240 1256,248 1248,240"/>
+      </g>
+      <g fill="#5F6670">
+        <text x="297.7" y="266">◆M1 能登录</text><text x="489.3" y="266">◆M2 客户闭环</text><text x="681" y="266">◆M3 调度闭环</text>
+        <text x="872.7" y="266">◆M4 飞行闭环</text><text x="1064.3" y="266">◆M5 全功能</text><text x="1256" y="266">◆M6 可交付</text>
+      </g>
+    </g>
+  </svg>
+  <div style="font-size:12px;color:#5F6670;margin-top:4px;">第 7-8 周为机动缓冲：补漏、性能优化、可选移动端三页、答辩彩排；正好覆盖你定的 2 个月总工期。</div>
+
+  <!-- ============ 三、每周细化 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">三、每周任务细化与"接口先行"对齐点</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:900px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;width:64px;">周</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">乙（后端）</th><th style="border:1px solid #d4dbe8;padding:6px 8px;">甲（前端）</th><th style="border:1px solid #d4dbe8;padding:6px 8px;width:190px;">周六验收（必须当场演）</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;"><b>W1</b><br>D1+地基</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">① 本机 MySQL 跑 ddl-v1（<b>开工第一天就要 root 密码</b>）② Flask 工厂/蓝图/统一响应/全局异常/SQLAlchemy ③ D1 登录注册、JWT、权限树、@perm 装饰器 ④ geo.py + 4 adapter 骨架</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">① Vite+TS 工程、ESLint/Prettier ② Axios 封装（token/统一code/Device-Type）③ 两套 Layout、登录页 ④ 后端权限树驱动动态路由+菜单 ⑤ 通用 ProTable/字典/状态标签组件 ⑥ 高德 key 加载 demo</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">三个账号登录各进各的布局，菜单按角色不同；越权 URL 跳 403</td>
+      </tr>
+      <tr style="background:#fafbfd;">
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;"><b>W2</b><br>D2</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">D2 下单/估价试算/取消/订单查询、地址簿；支付 adapter 成功/失败回调；L2 造数脚本 v1（客户+订单+地址）</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">C-2 下单（高德选寄收点+实时试算+Mock收银台）、C-3 订单列表/详情、C-6 地址簿、C-5 账单；写好 useWebSocket 备用</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">客户下单→支付→订单列表状态正确流转；造数后列表有 60 单</td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;"><b>W3</b><br>D3</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">state_machine 双轨动作（非法跳转单测）；接单、航线推荐、方案增改、submit、approve/reject/batch、assign、资质/空域预检</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">M-21/22 订单管理；<b>M-31 调度工作台</b>（订单池+地图航线/禁飞区叠加+方案面板）；M-34 空管审批台；M-35 机长任务台（起飞按钮先留）</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">一单从待调度走到"待起飞"；驳回能回退重做</td>
+      </tr>
+      <tr style="background:#f3f8f6;">
+        <td style="border:1px solid #bfe0d9;padding:6px 8px;"><b>W4</b><br>核心</td>
+        <td style="border:1px solid #bfe0d9;padding:6px 8px;">simulator：单任务 tick→多任务并发；轨迹 executemany 批量写；SocketIO 三房间+4类报文；×60 快进；5 种场景注入；违规检测写 violation_record</td>
+        <td style="border:1px solid #bfe0d9;padding:6px 8px;">useAmap（Marker 移动/航迹线/禁飞区多边形）；C-4 实时跟踪；<b>M-61 监控大屏</b>（多机、电量、告警滚动、快进/注入控制面板）；断线降级轮询</td>
+        <td style="border:1px solid #bfe0d9;padding:6px 8px;"><b>起飞后飞机沿航线飞、电量降；注入偏航大屏红色告警；到点自动送达</b></td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;"><b>W5</b><br>D4/8/9</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">D4 空域/地理围栏/场站/飞机/维保/排班；D8 结算单/流水/对账/处罚；D9 用户/角色/配置/日志；应急事件(P1)</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">M-41 空域一张图+绘制审核、M-51~56 资源管理、M-71~73 结算、M-81~87 系统管理、M-11 驾驶舱（ECharts 指标）</td>
+        <td style="border:1px solid #E4E3DD;padding:6px 8px;">28 个 P0 页面全部能开、有数据、动作可用</td>
+      </tr>
+      <tr style="background:#fbf7ee;">
+        <td style="border:1px solid #e0d3b8;padding:6px 8px;"><b>W6</b><br>收口</td>
+        <td style="border:1px solid #e0d3b8;padding:6px 8px;">pytest 覆盖率≥70%；批量插轨迹≥1000 条压测；接口 P95≤1s；造数脚本终版；一键初始化+启动脚本</td>
+        <td style="border:1px solid #e0d3b8;padding:6px 8px;">全链路回归、1366/1920 两档分辨率适配、空态/加载/错误态补齐、按 8 分钟动线彩排 3 遍、全程录屏兜底</td>
+        <td style="border:1px solid #e0d3b8;padding:6px 8px;">干净环境一键起系统，动线零卡顿演完</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 四、协作机制 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">四、两人协作机制（人少更要有规矩）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;">
+    <div style="flex:1 1 300px;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.9;">
+      <b style="color:#27395c;">接口先行，谁也不等谁</b><br>每周一上午乙先给出本周接口的 URL/入参/出参 JSON 样例（直接写在设计03契约上扩展）；甲用 Axios Mock 先开发，接口好了改 baseURL 即切真接口。
+    </div>
+    <div style="flex:1 1 300px;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.9;">
+      <b style="color:#27395c;">Git 分支约定</b><br>main 只放周六验收通过的版本；dev 日常集成；feature/w2-order 这种按周按模块开；<b>每天结束前互拉一次、当场解决冲突</b>，不攒。
+    </div>
+    <div style="flex:1 1 300px;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.9;">
+      <b style="color:#27395c;">每日 15 分钟对表</b><br>三句话：昨天做完什么、今天做什么、卡在哪。卡点超过半天就降级（先 Mock/先隐藏入口），不闷头死磕。
+    </div>
+    <div style="flex:1 1 300px;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;font-size:13px;line-height:1.9;">
+      <b style="color:#27395c;">里程碑不过不进下一周</b><br>周六验收没过，周日先补；连续两周偏移就砍 P1（维保/排班/应急本来就是预留），<b>P0 闭环绝不让位</b>。
+    </div>
+  </div>
+
+  <!-- ============ 五、风险 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">五、开工前必须清掉的前置项</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:760px;">
+    <thead><tr style="background:#fdecec;color:#A14E50;"><th style="border:1px solid #f0d9d9;padding:6px 8px;text-align:left;">事项</th><th style="border:1px solid #f0d9d9;padding:6px 8px;text-align:left;">谁</th><th style="border:1px solid #f0d9d9;padding:6px 8px;text-align:left;">死线</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">提供本机 MySQL root 密码（或新建 tianshu 账号），W1 第一天要真跑 DDL</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">你</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">开工当天</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">高德控制台给 Web 服务/JS Key 配 localhost、127.0.0.1 白名单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">你</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">W1 内</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">用高德拾取器核准 2 场站 + 3~5 个客户演示点坐标（替换 DDL 示例坐标）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">你+甲</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">W2 前</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">确认 Node/Python 环境、Git 仓库（Gitee 私有库即可）建好</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">甲乙</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">开工当天</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="margin-top:16px;border-left:4px solid #4F6B9A;background:#f4f7fb;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;line-height:1.9;">
+    <b>设计阶段到此全部收官：</b>设计02 状态机 → 03 模块契约 → 04 数据库 → 05 E-R → DDL → 06 信息架构 → 07 Mock/仿真器 → 08 本排期。你确认本排期后，下一步正式进入 <b>M0 工程初始化</b>：乙建库跑 DDL + Flask 骨架，甲搭 Vue 工程与登录页。
+  </div>
+</div>
+</html>

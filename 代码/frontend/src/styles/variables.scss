@@ -1,0 +1,59 @@
+// ============================================================
+// 天枢主题变量（D-28 藏青金）——全站换肤只改这一个文件
+// SCSS 变量给 <style lang="scss"> 用；CSS 变量给 Element Plus 覆盖用
+// ============================================================
+
+// ---- SCSS 变量 ----
+$ts-primary: #23406E;        // 藏青：主按钮/链接/主强调
+$ts-primary-dark: #1C3358;   // 深藏青：侧栏
+$ts-primary-light: #3A5A8C;
+$ts-gold: #C8A45C;           // 点缀金：logo/选中标记/关键数字
+$ts-gold-light: #E0C993;
+$ts-bg: #FBF9F4;             // 米白底
+$ts-card: #FFFFFF;
+$ts-border: #E8E2D2;
+$ts-text: #1F2937;
+$ts-text-regular: #4B5563;
+$ts-text-secondary: #8A8578;
+$ts-success: #16A34A;
+$ts-warning: #D97706;
+$ts-danger: #DC2626;
+
+// 大屏（独立配色，仅 /screen 下使用）
+$ts-screen-bg: #0B1A33;
+$ts-screen-line: #38BDF8;
+
+:root {
+  // ---- Element Plus 主题覆盖（藏青）----
+  --el-color-primary: #{$ts-primary};
+  --el-color-primary-dark-2: #{$ts-primary-dark};
+  --el-color-primary-light-3: #65799A;
+  --el-color-primary-light-5: #919FB6;
+  --el-color-primary-light-7: #BDC5D3;
+  --el-color-primary-light-8: #D2D8E4;
+  --el-color-primary-light-9: #E8EBF2;
+  --el-border-radius-base: 4px;
+  --el-font-size-base: 14px;
+  --el-bg-color-page: #{$ts-bg};
+
+  // ---- 天枢自有令牌 ----
+  --ts-primary: #{$ts-primary};
+  --ts-primary-dark: #{$ts-primary-dark};
+  --ts-primary-light: #{$ts-primary-light};
+  --ts-gold: #{$ts-gold};
+  --ts-gold-light: #{$ts-gold-light};
+  --ts-bg: #{$ts-bg};
+  --ts-card: #{$ts-card};
+  --ts-border: #{$ts-border};
+  --ts-text: #{$ts-text};
+  --ts-text-regular: #{$ts-text-regular};
+  --ts-text-secondary: #{$ts-text-secondary};
+  --ts-success: #{$ts-success};
+  --ts-warning: #{$ts-warning};
+  --ts-danger: #{$ts-danger};
+  --ts-sidebar: #{$ts-primary-dark};
+  --ts-sidebar-text: #B9C6DC;
+  --ts-sidebar-active: #{$ts-gold};
+  --ts-screen-bg: #{$ts-screen-bg};
+  --ts-screen-line: #{$ts-screen-line};
+}

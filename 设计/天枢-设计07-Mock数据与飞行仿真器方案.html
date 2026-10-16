@@ -1,0 +1,250 @@
+<html style="margin:0;padding:0;">
+<div style="width:100%;box-sizing:border-box;padding:22px 24px;font-family:'Microsoft YaHei','Segoe UI',sans-serif;color:#1A1B1C;background:#fff;font-size:14px;line-height:1.55;">
+
+  <div style="border-left:5px solid #4F6B9A;padding-left:12px;margin-bottom:12px;">
+    <div style="font-size:20px;font-weight:700;color:#27395c;">天枢平台 — Mock 数据与飞行仿真器方案（设计07）</div>
+    <div style="font-size:12.5px;color:#5F6670;margin-top:4px;">目标：任何页面打开都有真实感数据；答辩时一键演示"下单→调度→审批→飞机在地图上飞→违规告警→送达结算"全流程｜对应 D-08/D-09、设计03 D6、DDL flight_track</div>
+  </div>
+
+  <!-- ============ 一、Mock 分层 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:16px 0 8px;">一、四层"假数据"体系（各管一段，不混在一起）</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <div style="flex:1 1 220px;border:1px solid #c7d3e8;border-radius:8px;background:#f4f7fb;padding:10px 12px;">
+      <b style="color:#27395c;">L1 基础种子</b><br><span style="font-size:12.5px;color:#5F6670;">已在 ddl-v1.sql：9 角色/32 权限/3 账号/3 空域/2 场站/2 飞机/8 参数。建库即有。</span>
+    </div>
+    <div style="flex:1 1 220px;border:1px solid #c7d3e8;border-radius:8px;background:#f4f7fb;padding:10px 12px;">
+      <b style="color:#27395c;">L2 业务演示数据</b><br><span style="font-size:12.5px;color:#5F6670;">造数脚本生成：客户、各状态订单、飞行计划、审批、结算、维保等，让列表/大屏不空。</span>
+    </div>
+    <div style="flex:1 1 220px;border:1px solid #bfe0d9;border-radius:8px;background:#f2f8f6;padding:10px 12px;">
+      <b style="color:#174e44;">L3 实时仿真数据</b><br><span style="font-size:12.5px;color:#5F6670;">仿真器运行时每秒产生轨迹帧：写 flight_track + WS 推送（本方案核心）。</span>
+    </div>
+    <div style="flex:1 1 220px;border:1px solid #e0d3b8;border-radius:8px;background:#fbf7ee;padding:10px 12px;">
+      <b style="color:#7a5a1f;">L4 外部 Mock 适配</b><br><span style="font-size:12.5px;color:#5F6670;">UTM/气象/支付/GCS 四个 adapter 返回预置响应，可切换成功/失败场景。</span>
+    </div>
+  </div>
+
+  <!-- ============ 二、造数脚本 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">二、L2 业务造数脚本（seed/generate_mock_data.py）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;background:#fcfcfb;">
+    <b>原则：</b>① 幂等可重复跑（<code>--reset</code> 先清业务表再生成，不碰角色/权限/空域）；② 用 Faker + 温州本地语料库（地名/路名/货物类型）；③ <b>状态必须自洽</b>（见下方矩阵，杜绝"飞行中订单却没有轨迹"的穿帮）；④ 单号/流水号走与后端同一套生成规则。<br>
+    <b>用法：</b><code>python seed/generate_mock_data.py --orders 60 --track-history-days 30</code>
+  </div>
+  <div style="overflow-x:auto;margin-top:10px;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:760px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;">
+      <th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">数据</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">数量</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">生成要点</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">客户账号</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">12（含已实名）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">手机号 HMAC 摘要与 AES 占位同 DDL 规则；2 个企业客户</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">商家员工</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">8</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度2/机长3/财务1/设备运维2，merchant_id=1，角色对应</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">订单 orders</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">60</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">按状态分布：历史已完成 30、已取消 4、待支付/待接单/待调度/待审批/待起飞/飞行中各 3~6；寄收点取温州坐标语料</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">飞行计划</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">≈40</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">状态≥1 的订单才配计划；route_json 5~8 个航点，绕开禁飞区；人机场随机指派</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">审批/结算/流水</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">配套</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">每个申报计划 1~2 条 approval_record；已完成订单配 settlement + payment_transaction</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">历史轨迹</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">近30天已完成计划</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">离线批量插值造帧（同一套插值函数），供轨迹回放/报表；不造未来分区数据</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">违规/维保/气象</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">6 / 10 / 3 网格</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">违规类型覆盖 4 种；维保含待处理；气象每网格一条最新快照</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:16px 0 6px;">状态自洽矩阵（造数与仿真共同遵守，=设计02状态机的落库版）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:820px;">
+    <thead><tr style="background:#e7f3f0;color:#174e44;">
+      <th style="border:1px solid #bfe0d9;padding:6px 8px;">orders.status</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">flight_plan.status</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">必须同时存在的数据</th><th style="border:1px solid #bfe0d9;padding:6px 8px;">由谁产生</th>
+    </tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">0待支付/1待接单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">无计划</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">仅订单</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">客户下单/Mock支付</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">2 待调度</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">0待申报 或 5已驳回</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">方案草稿（可空）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">调度/驳回回退</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">3 待审批</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">1 待审批</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">完整方案+weather_json</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">submit</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">4 待起飞</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">2 已批准待执行</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">approval_record 通过记录、assigned_at</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">approve→assign</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;"><b>5 飞行中</b></td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><b>3 执行中</b></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">flight_track 持续写入、current_* 快照、设备状态=执行中</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">机长 takeoff → <b>仿真器启动</b></td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">6 已送达 / 7 已完成</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">4 已完成</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">完整轨迹、settlement、payment</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">land → 自动结算</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">8 已取消</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">6已取消/无</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">cancel_reason、退款流水</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">取消动作</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 三、仿真器 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 8px;">三、飞行仿真器（L3 · 项目最大亮点）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #bfe0d9;border-radius:8px;padding:10px 14px;background:#f2f8f6;">
+    <b>定位：</b>不做独立程序，作为 Flask 内一个模块 <code>services/simulator.py</code>，由 APScheduler 每 1 秒统一 tick 所有在飞任务；未来真机走同一个 /tracks/batch 入口，<b>业务代码零改动</b>（source=2）。
+  </div>
+
+  <!-- 仿真器生命周期 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:14px 0 6px;">3.1 生命周期：状态机驱动，绝不自己乱启动</div>
+  <div style="font-size:13px;color:#5F6670;">仿真任务实例严格挂在状态机动作上：</div>
+  <svg viewBox="0 0 1180 86" width="100%" style="margin-top:4px;" xmlns="http://www.w3.org/2000/svg">
+    <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#4F6B9A"/></marker></defs>
+    <g font-family="Microsoft YaHei" font-size="12.5" text-anchor="middle">
+      <rect x="10" y="26" width="150" height="40" rx="8" fill="#fff" stroke="#94a3b8"/><text x="85" y="44">IDLE 空闲</text><text x="85" y="60" font-size="10.5" fill="#5F6670">计划批准待执行</text>
+      <rect x="220" y="26" width="160" height="40" rx="8" fill="#eef2f9" stroke="#4F6B9A" stroke-width="1.5"/><text x="300" y="44">RUNNING 运行</text><text x="300" y="60" font-size="10.5" fill="#5F6670">机长 takeoff 时创建</text>
+      <rect x="440" y="26" width="150" height="40" rx="8" fill="#fff" stroke="#94a3b8"/><text x="515" y="44">PAUSED 暂停</text><text x="515" y="60" font-size="10.5" fill="#5F6670">注入失联/管制</text>
+      <rect x="650" y="26" width="160" height="40" rx="8" fill="#f0f6f3" stroke="#35705A" stroke-width="1.5"/><text x="730" y="44">FINISHED 完成</text><text x="730" y="60" font-size="10.5" fill="#5F6670">飞到终点→land</text>
+      <rect x="870" y="26" width="160" height="40" rx="8" fill="#fdecec" stroke="#A14E50"/><text x="950" y="44">ABORTED 中止</text><text x="950" y="60" font-size="10.5" fill="#5F6670">应急/取消→Mock退款</text>
+      <g stroke="#4F6B9A" stroke-width="1.4" fill="none">
+        <path d="M160,46 L218,46" marker-end="url(#ar)"/>
+        <path d="M380,40 L438,40" marker-end="url(#ar)"/>
+        <path d="M440,54 L382,54" marker-end="url(#ar)"/>
+        <path d="M590,46 L648,46" marker-end="url(#ar)"/>
+        <path d="M380,34 L868,30" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+      </g>
+      <g font-size="10" fill="#5F6670">
+        <text x="189" y="40">takeoff</text><text x="410" y="34">pause</text><text x="410" y="68">resume</text>
+        <text x="619" y="40">到终点</text><text x="620" y="22" fill="#A14E50">应急终止</text>
+      </g>
+    </g>
+  </svg>
+
+  <!-- 推算原理 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:16px 0 6px;">3.2 每帧怎么算（1 帧 = 1 秒，大白话+公式）</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;background:#2b2f36;color:#e6e9ee;padding:12px 16px;font-size:12.5px;line-height:1.75;font-family:Consolas,monospace;white-space:pre;">输入：审批通过的 plan.route_json（航点 W0..Wn）、cruise_speed、aircraft.endurance_min、起始电量
+每 1 秒一个 tick，对每个 RUNNING 任务：
+  1) 前进距离  step_m = speed(m/s) × 1s
+  2) 沿当前航段 [Wa → Wb] 累计前进，比例 f = 已走/航段长；用 Haversine 算航段长度（米）
+     插值：lng = Wa.lng + (Wb.lng-Wa.lng)*f ；lat 同理（GCJ-02，全程不换坐标系）
+     走完 Wb 就切到下一航段；走完 Wn = 到终点
+  3) 高度曲线：爬升段(前10%)线性升到申报高度 → 平飞保持 → 降落段(后10%)降到 0
+  4) 电量：battery -= 100 / (endurance_min*60) × 负载系数(载重/最大载重)；≤20% 发低电量告警
+  5) 航向：atan2(Wb-Wa) 算方位角 0~359°
+  6) 合规检测（调 D5 同一套函数，监控和申报用一个标准）：
+       点是否落入禁飞/限飞多边形（射线法）、与计划航线偏航距离、是否超高
+  7) 攒帧：帧先入内存队列，每 1 秒 executemany 批量写 flight_track（满足单批≥1000 指标）
+  8) 更新 flight_plan.current_lng/lat/altitude/speed/battery + last_report_at（热快照）
+  9) WS 广播（见第四节）；到终点自动调用状态机 land 动作</pre></div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+    <div style="flex:1 1 300px;border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;line-height:1.85;">
+      <b>两种时间倍率（答辩关键开关）</b><br>真实模式：1帧=1秒，贴近真实；<b>演示快进 ×60</b>：1 秒推进 1 分钟航程，10 分钟航线十几秒飞完。倍率只改 step_m，其他逻辑不变。
+    </div>
+    <div style="flex:1 1 300px;border-left:4px solid #9A6A2F;background:#fbf7ee;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;line-height:1.85;">
+      <b>为什么仿真器要复用 D5 合规函数？</b><br>申报时怎么判、飞行中就怎么判，标准唯一；否则"申报说能飞、飞起来却报警"就是逻辑事故。
+    </div>
+  </div>
+
+  <!-- 场景注入 -->
+  <div style="font-size:15px;font-weight:700;color:#27395c;margin:16px 0 6px;">3.3 异常场景注入（答辩主动演示，比一路顺风更有说服力）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:760px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">场景开关</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">仿真器行为</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">系统联动效果</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">/simulator/scenario?type=deviate</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">后续帧整体横向偏移 120m</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">轨迹点打标偏航→violation_record→大屏红色告警</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">type=intrude</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">航线临时插入穿越禁飞区</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">闯区告警 + 建议改航</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">type=lowbattery</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">电量消耗 ×5</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">低于 20% 推送返航建议至机长端</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">type=lost</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">停止推帧 30 秒</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">Redis 心跳过期→判失联→生成 emergency_event(P1)</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">type=weather</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">气象切橙色预警</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">提示备降/盘旋等待</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 四、WS ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 8px;">四、WebSocket 报文约定（前后端照此对接）</div>
+  <div style="font-size:13px;line-height:1.9;border:1px solid #E4E3DD;border-radius:8px;padding:10px 14px;background:#fcfcfb;">
+    连接：<code>IO /ws/monitor?token=JWT</code>（握手带 JWT 鉴权）；按角色 join 房间：客户/调度 join <code>plan:{id}</code>，机长 join <code>pilot:{uid}</code>，大屏 join <code>admin:overview</code>。<br>
+    心跳：客户端 25s 发 ping，服务端 pong；断线指数退避重连；<b>WS 不可用时降级为 2s 轮询 GET /tracks/latest</b>，保证答辩不断片。
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px 12px;">
+      <b style="font-size:13px;">① 轨迹帧 track.frame（每秒）</b>
+      <pre style="margin:6px 0 0;font-size:12px;line-height:1.6;background:#f7f9fc;border-radius:6px;padding:8px;white-space:pre-wrap;">{
+ "type":"track.frame","ts":1726300000123,
+ "data":{"planId":101,"lng":120.931201,"lat":27.991802,
+  "altitude":86.5,"speed":14.2,"direction":97,"battery":78,
+  "progress":0.42,"violation":null}
+}</pre>
+    </div>
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px 12px;">
+      <b style="font-size:13px;">② 状态变更 plan.status</b>
+      <pre style="margin:6px 0 0;font-size:12px;line-height:1.6;background:#f7f9fc;border-radius:6px;padding:8px;white-space:pre-wrap;">{
+ "type":"plan.status","ts":...,
+ "data":{"planId":101,"orderStatus":5,"planStatus":3,
+  "event":"takeoff","at":"2026-09-14 10:20:01"}
+}</pre>
+    </div>
+    <div style="flex:1 1 46%;border:1px solid #f0d9d9;border-radius:8px;padding:10px 12px;">
+      <b style="font-size:13px;color:#A14E50;">③ 违规/应急 alert.violation</b>
+      <pre style="margin:6px 0 0;font-size:12px;line-height:1.6;background:#fdf3f3;border-radius:6px;padding:8px;white-space:pre-wrap;">{
+ "type":"alert.violation","ts":...,
+ "data":{"planId":101,"kind":"deviate",
+  "value":120,"threshold":100,
+  "lng":...,"lat":...,"level":"warn"}
+}</pre>
+    </div>
+    <div style="flex:1 1 46%;border:1px solid #E4E3DD;border-radius:8px;padding:10px 12px;">
+      <b style="font-size:13px;">④ 大屏总览 overview.rollup（2s 聚合）</b>
+      <pre style="margin:6px 0 0;font-size:12px;line-height:1.6;background:#f7f9fc;border-radius:6px;padding:8px;white-space:pre-wrap;">{
+ "type":"overview.rollup","ts":...,
+ "data":{"flying":23,"online":41,"alert":2,
+  "plans":[{"planId":101,"lng":..,"lat":..}, ...]}
+}</pre>
+    </div>
+  </div>
+
+  <!-- ============ 五、外部 adapter ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 8px;">五、L4 外部 Mock Adapter（统一接口、可切场景、全部留痕）</div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.8px;min-width:760px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">Adapter</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">假实现</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">可切场景</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">payment 支付</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">不真扣款，500ms 后回调成功，生成 channel_txn_no</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">success / fail / timeout</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">weather 气象</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">按温州网格生成风/能见度，10 分钟刷新写 weather_snapshot</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">晴好 / 橙色强对流</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">utm 空管</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">返回预置空域 + 申报回执编号</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">自动批准 / 人工审批</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">gcs 地面站</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">预留 MQTT 接口形状；本期由仿真器实现</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">sim / real 开关</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="font-size:12.5px;color:#5F6670;margin-top:6px;">每次调用写 external_api_log；真系统接入时只替换 adapter 内部实现，service 层不动。</div>
+
+  <!-- ============ 六、目录与分工 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">六、后端目录落点与乙的实现顺序</div>
+  <div style="border:1px solid #E4E3DD;border-radius:8px;background:#2b2f36;color:#e6e9ee;padding:12px 16px;font-size:12.5px;line-height:1.8;font-family:Consolas,monospace;white-space:pre;">backend/
+├─ adapters/          # payment.py weather.py utm.py gcs.py（L4，先写）
+├─ services/
+│  ├─ geo.py         # Haversine、点在多边形、偏航距离（D5 与仿真器共用）
+│  ├─ state_machine.py  # 订单/计划双轨动作唯一入口
+│  └─ simulator.py   # L3：任务实例 + APScheduler 每秒 tick
+├─ blueprints/       # D1~D9 蓝图
+├─ seed/generate_mock_data.py  # L2 造数
+└─ tests/            # geo 几何单测、状态机非法跳转单测（覆盖率≥70%）</div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;line-height:1.9;margin-top:10px;">
+    <b>实现顺序：</b>① geo.py 几何函数 + 单测 → ② 四个 adapter 假实现 → ③ 造数脚本（先让页面有数据）→ ④ state_machine 动作接口 → ⑤ simulator 单任务跑通（写库+WS）→ ⑥ 多任务并发与场景注入 → ⑦ 大屏联调。
+  </div>
+
+  <!-- ============ 七、答辩动线 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:22px 0 8px;">七、答辩演示动线（8 分钟脚本，提前用造数脚本铺好背景数据）</div>
+  <div style="border:1px solid #c7d3e8;border-radius:8px;background:#f4f7fb;padding:12px 16px;font-size:13px;line-height:2.1;">
+    ① customer 登录 → 地图选点下单（费用实时试算）→ Mock 支付成功<br>
+    ② merchant 登录 → 待接单池接单 → <b>调度工作台一键推荐</b>航线人机场 → 提交申报<br>
+    ③ 切空管账号 → 审批台看航线与禁飞区叠加 → 通过 → 下发机长<br>
+    ④ 机长任务台确认起飞 → <b>切监控大屏（×60 快进）看飞机沿航线移动、电量下降</b><br>
+    ⑤ 中途注入"偏航"场景 → 大屏红色告警 + 违规记录生成 → 空管开具处罚<br>
+    ⑥ 飞机降落送达 → 自动生成结算单 → 财务对账 → 客户看到已完成与电子回单
+  </div>
+
+  <!-- ============ 八、实现口径回填 ============ -->
+  <div style="font-size:16px;font-weight:700;color:#27395c;margin:24px 0 8px;">八、实现口径回填（2026-09-28 P0 批次，代码为准）</div>
+  <div style="font-size:12.8px;color:#5F6670;line-height:1.9;margin-bottom:8px;">
+    本节把本文前面"设计意图"与 <code>app/services/flight_simulator.py</code>、<code>compliance_monitor.py</code> 的<b>实际实现</b>逐条对齐，
+    差异一律写清原因，避免答辩时被追问"文档和代码哪个算数"。核对方式：<code>scripts/check_p0_flight.py</code>（32 项断言，全过）+ <code>tests/</code>（144 用例）。
+  </div>
+  <div style="overflow-x:auto;">
+  <table style="border-collapse:collapse;width:100%;font-size:12.6px;min-width:820px;">
+    <thead><tr style="background:#eef2f9;color:#27395c;"><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">项</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">本文设计口径</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">代码实现（已实测）</th><th style="border:1px solid #d4dbe8;padding:6px 8px;text-align:left;">差异与取舍</th></tr></thead>
+    <tbody>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">tick 节奏</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">每 1 秒一个 tick</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>tick_seconds()=1.0</code>；后台线程 <code>start(app)</code> 循环推进，测试/脚本用 <code>FLASK_SIM_DISABLED=1</code> 手动调 <code>tick()</code></td><td style="border:1px solid #E4E3DD;padding:5px 8px;">一致。把"自动跑"与"可控跑"分开，是为了让状态机断言可复现</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">倍速开关</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">演示快进 ×60，只改 step_m</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>speed_factor()</code> 优先级：环境变量 <code>SIM_SPEED_FACTOR</code> &gt; 系统参数 <code>sys_config.sim_speed_factor</code>（默认 60）&gt; <code>.env SIM_DEFAULT_SPEED</code> &gt; 1；作用于仿真进度，高度曲线/电量按仿真时间同步推进</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">比设计多一层：参数页改完 10 秒内热生效（<code>scope.sys_cfg</code> 带 TTL），不用重启就能切倍速</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">帧落库</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">内存队列攒帧，每秒 <code>executemany</code> 批量写（单批 ≥1000）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">每 tick 每计划 1 行 ORM INSERT，与热快照同一事务提交；单计划帧数上限 <code>sys_config.sim_frame_points</code>（默认 600）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">演示并发（1~3 架在飞）远达不到批量阈值，而"违规打标必须在 INSERT 前 + 同事务"依赖单行顺序；真机高频上报时再按本口径改批量</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">实时推送</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">SocketIO 四类报文 + 25s 心跳，WS 不可用降级 2s 轮询</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">本期只做轮询：大屏 <b>2.5s</b> 轮询 <code>GET /api/monitor/screen</code>（态势/轨迹/告警一次返回），未启用房间与心跳</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">单进程无 Redis 环境轮询即可保证演示不断片；第四节的报文约定原样保留，作为二期接入契约（依赖已装）</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">失联判定</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">Redis 心跳过期 → 判失联 → emergency_event(P1)</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">场景 <code>link_loss</code> 当帧起停止回写位置/电量并置 <code>aircraft.online=0</code>，直接 <code>raise_emergency(类型1 链路失联, level 3 重大)</code>，描述里带「最后上报 HH:MM:SS」；广播站内信 + 大屏告警；已生成的应急事件在<b>降落时</b>由 <code>resolve_emergencies</code> 统一解除（重注 normal 只恢复遥测回写，不会自动销案）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">本期由<b>注入开关</b>触发失联，没有独立的"心跳超时探测线程"；判定依据用 DB 热快照 <code>last_report_at</code> 展示，不引入 Redis 依赖。真机接入时把这段换成 GCS 上报超时探测即可</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">违规闭环</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">每帧点-多边形/偏航/超高检测 → 轨迹打标 → violation_record</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>compliance_monitor</code> 四类判定：<b>1 闯禁飞区</b>（落在 status=1 的禁飞/临时管制空域，管制还看时段）、<b>2 偏航</b>（到 route_json 折线最近距离 &gt; <code>sys_config.route_deviation_limit_m</code>=100m）、<b>3 超时飞行</b>（超过 plan_end_at + <code>overschedule_tolerance_min</code>=10min）、<b>4 超高</b>（&gt; 所在限飞区 altitude_max 或 <code>altitude_limit_max_m</code>=120m）；<code>flight_track.is_violation</code> + <code>violation_type</code> 逐帧打标；同一计划同一类型只要台账里还有「未处理/处理中」就<b>去重</b>不重复入账；违规必发站内信给机长，1/4 属 SEVERE 再广播平台侧；SEVERE 或失联/低电量/恶劣天气 → <code>emergency_event</code>（类型 1 链路失联 / 2 闯入禁飞区 / 3 低电量 / 4 恶劣天气）；告警页与大屏读真数据</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">去重是倍速带来的新问题：×60 下每 1/60 秒就超一次阈值，不去重会把违规台账刷成垃圾数据；逐帧打标保留「违规的是哪一段」，回放页看得出。阈值全部走系统参数（10s TTL），不再写死代码</td></tr>
+      <tr><td style="border:1px solid #E4E3DD;padding:5px 8px;">落地入口</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">到终点自动调状态机 land 动作</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>_finish_landing()</code> 收尾后调 <code>dispatch_service.finish_landing()</code>（计划→4、订单→6 且回填 delivered_at、飞机归位 1 并写回电量、场站占用回落）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">对齐设计02 铁律"状态机唯一入口在 D3"，仿真器不自行改业务状态</td></tr>
+      <tr style="background:#fafbfd;"><td style="border:1px solid #E4E3DD;padding:5px 8px;">门禁</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">（本文未列）</td><td style="border:1px solid #E4E3DD;padding:5px 8px;"><code>/api/simulator/*</code>（status/scenarios/inject/pause/speed）与 <code>/api/demo/run</code> 统一挂 <code>@perm_required("demo:run")</code> —— 只有平台管理员与平台运维持有；倍速/帧间隔阈值本身写在 <code>sys_config</code>，改参数还需 <code>system:config</code>。机长注入实测 403、匿名读状态实测 401</td><td style="border:1px solid #E4E3DD;padding:5px 8px;">权限点复用 DDL 里已有的 <code>demo:run</code>（迁移 p0 一并授予运维），没有为仿真器另起权限点：这些接口会真写飞行数据，风险面与"一键演示"完全一致</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div style="border-left:4px solid #35705A;background:#f0f6f3;border-radius:0 6px 6px 0;padding:10px 14px;font-size:13px;line-height:1.9;margin-top:10px;">
+    <b>实测结论（演示库 tianshu_utms）：</b>×60 倍速下 10 分钟航线约 10 秒飞完；每 tick 落 1 帧且回填 direction/battery；注入偏航产生 <code>violation_record</code>(type=2)「偏离计划航线 125m，超过阈值 100m」并在 6 帧轨迹上连续打标，同类去重期间台账保持 1 条；注入闯区产生 type=1 违规 + <code>emergency_event</code> + 站内信；到点自动完成后订单转「已送达」、飞机归位闲置、应急事件自动解除。回归新增数据 2 单/2 计划/3 违规/1 应急/11 轨迹帧/5 站内信，未改动既有演示数据。
+  </div>
+
+  <div style="margin-top:14px;font-size:12px;color:#5F6670;border-top:1px solid #E4E3DD;padding-top:8px;">下一步：两人 6 周并行排期表（按设计03分工 + 设计06页面批次 + 本方案实现顺序，细化到天/里程碑）｜排期定完即进入工程初始化（Flask/Vue 骨架）</div>
+</div>
+</html>

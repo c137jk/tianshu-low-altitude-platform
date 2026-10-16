@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>天枢·低空智能运营管控平台 — 项目实践报告</title>
+<style>
+  body { font-family: "Times New Roman", "SimSun", "宋体", serif; font-size: 12pt; line-height: 1.5; color: #222; max-width: 900px; margin: 0 auto; padding: 40px 50px; }
+  h1 { font-size: 18pt; text-align: center; margin-top: 30px; }
+  h2 { font-size: 15pt; border-bottom: 2px solid #2c5f8a; padding-bottom: 4px; margin-top: 28px; color: #1f4e6e; }
+  h3 { font-size: 13pt; margin-top: 20px; color: #2c5f8a; }
+  h4 { font-size: 12pt; margin-top: 14px; }
+  p { text-indent: 2em; margin: 6px 0; text-align: justify; }
+  table { border-collapse: collapse; margin: 12px auto; width: 90%; font-size: 10.5pt; }
+  th, td { border: 1px solid #555; padding: 5px 8px; text-align: left; }
+  th { background: #e8eef4; font-weight: bold; }
+  .caption { text-align: center; font-size: 10.5pt; margin: 6px 0 14px; text-indent: 0; }
+  pre { background: #f5f6f8; border: 1px solid #ddd; border-left: 4px solid #2c5f8a; padding: 10px 14px; font-family: Consolas, "Courier New", monospace; font-size: 9.5pt; line-height: 1.45; overflow-x: auto; white-space: pre; }
+  code { font-family: Consolas, monospace; background: #eef1f5; padding: 1px 4px; font-size: 10pt; }
+  .cover { text-align: center; margin-top: 120px; }
+  .cover .title { font-size: 26pt; font-weight: bold; letter-spacing: 2px; margin-bottom: 60px; }
+  .cover .meta { font-size: 14pt; line-height: 2.4; text-align: left; margin: 0 auto; width: 380px; }
+  .cover .meta span { display: inline-block; border-bottom: 1px solid #333; min-width: 200px; }
+  .toc { background: #fafbfc; border: 1px solid #e0e0e0; padding: 16px 28px; margin: 20px 0; }
+  .toc h3 { margin-top: 0; }
+  .toc div { text-indent: 0; margin: 3px 0; }
+  .toc .l2 { padding-left: 2em; }
+  .toc .l3 { padding-left: 4em; font-size: 10.5pt; color: #555; }
+  .note { background: #fff8e6; border-left: 4px solid #e0a800; padding: 8px 14px; text-indent: 0; font-size: 10.5pt; margin: 10px 0; }
+  .arch-box { background: #f0f5fa; border: 1px dashed #2c5f8a; padding: 12px 18px; text-indent: 0; margin: 10px 0; font-size: 10.5pt; }
+  ul, ol { margin: 6px 0 6px 2em; }
+  li { margin: 3px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============ 封面 ============ -->
+<div class="cover">
+  <div style="font-size:16pt; margin-bottom:10px;">《企业级系统开发实践》</div>
+  <div class="title">项 目 实 践 报 告</div>
+  <div class="meta">
+    <div>项目名称：<span>天枢·低空智能运营管控平台</span></div>
+    <div>专业名称：<span>计算机科学与技术</span></div>
+    <div>班　　级：<span>23计算机科学与技术本X班</span></div>
+    <div>姓　　名：<span>江炘珂</span></div>
+    <div>学　　号：<span>23210816236</span></div>
+    <div>指导教师：<span>&nbsp;</span></div>
+  </div>
+</div>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 目录 ============ -->
+<div class="toc">
+<h3>目　录</h3>
+<div>1　引言</div>
+<div class="l2">1.1　研究背景与意义</div>
+<div class="l2">1.2　研究目标与主要内容</div>
+<div class="l3">1.2.1　研究目标</div>
+<div class="l3">1.2.2　研究主要内容</div>
+<div class="l2">1.3　开发环境</div>
+<div>2　需求分析</div>
+<div class="l2">2.1　用户需求分析</div>
+<div class="l2">2.2　功能需求分析</div>
+<div>3　系统设计</div>
+<div class="l2">3.1　数据库设计</div>
+<div class="l2">3.2　系统架构设计</div>
+<div>4　系统功能实现</div>
+<div class="l2">4.1　登录与 RBAC 权限模块</div>
+<div class="l2">4.2　订单全流程与调度状态机模块</div>
+<div class="l2">4.3　低空态势实时监控与数据大屏模块</div>
+<div>5　核心代码</div>
+<div class="l2">5.1　核心配置</div>
+<div class="l2">5.2　实体类代码</div>
+<div class="l2">5.3　数据持久层代码</div>
+<div class="l2">5.4　服务层代码</div>
+<div class="l2">5.5　控制层代码</div>
+<div>6　系统测试</div>
+<div class="l2">6.1　功能测试</div>
+<div class="l2">6.2　性能测试</div>
+<div>7　结束语</div>
+<div class="l2">7.1　总结</div>
+<div class="l2">7.2　展望</div>
+</div>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 1 引言 ============ -->
+<h1>1　引言</h1>
+
+<h2>1.1　研究背景与意义</h2>
+<p>近年来，低空经济作为国家重点培育的新兴增长极，被多次写入政府工作报告，涵盖无人机物流配送、应急医疗救援、城市巡检、农林作业等多元业态。浙江省温州市作为低空经济先行示范区，已划定城市试飞空域并推进起降场网络建设。然而，当前低空运营仍面临空域资源供需失衡、飞行计划审批链条长、运营过程缺乏数字化监管手段、多角色协同不畅、飞行轨迹与违规事件难以留痕等突出问题。</p>
+<p>本项目以温州城市低空物流为演示场景，设计并实现"天枢·低空智能运营管控平台"。平台将客户下单、商家调度、空管审批、机长执行、实时监控、结算归档全流程线上化，使分散的低空飞行活动转化为可监管、可计量、可追溯的数字资产。项目意义在于：一方面探索在课程周期内用轻量全栈技术栈实现复杂业务闭环的工程方法；另一方面通过 RBAC 多角色权限、双轨状态机、轨迹分区存储、敏感字段加密等设计，训练企业级系统在安全、隐私、可维护性等多重约束下的取舍能力。</p>
+
+<h2>1.2　研究目标与主要内容</h2>
+
+<h3>1.2.1　研究目标</h3>
+<p>本项目最终目标是交付一套可运行的 B/S 架构低空运营管控系统，支撑"申请—审批—调度—监控—结算"全生命周期闭环：客户在门户完成下单与支付后，订单经商家接单、调度方案匹配、空管飞行计划审批、机长起飞执行，仿真器沿航线实时推进轨迹，前端在地图上刷新飞行器位置与告警，最终送达确认并结算。系统需满足九类角色权限严格隔离、订单与飞行计划双轨状态机一致、敏感个人信息加密存储、接口统一异常封装与操作日志留痕等企业级要求。</p>
+
+<h3>1.2.2　研究主要内容</h3>
+<p>系统按业务域划分为七大功能模块：</p>
+<ul>
+<li><b>账号与权限管理</b>：账号密码登录、JWT 签发、企业/商家资质认证、RBAC 角色—权限树状分配、账号冻结解冻、操作日志审计。</li>
+<li><b>订单全流程管理</b>：分步下单、服务空域校验与费用试算、Mock 在线支付、自动/手动接单、调度方案匹配与合规预检、订单实时跟踪、结算与评价投诉。</li>
+<li><b>低空资源管理</b>：飞行器台账与健康度、起降场/换电站监控与预约、机长与运维人员资质及排班。</li>
+<li><b>空域合规运营</b>：禁飞区/限飞区数据维护、飞行计划申报与审批、实时航迹比对与电子围栏告警、违规记录与分级处罚。</li>
+<li><b>数据统计与报表</b>：运营大屏、多维度报表、Excel/CSV 导出。</li>
+<li><b>应急与客服</b>：失联/闯区/低电量/恶劣天气分级告警、客服工单闭环、站内消息通知。</li>
+<li><b>系统配置</b>：核心参数维护、商家审核、数据备份策略、全量操作日志查询。</li>
+</ul>
+
+<h2>1.3　开发环境</h2>
+<table>
+<tr><th>类别</th><th>工具/组件</th><th>版本</th><th>用途</th></tr>
+<tr><td>操作系统</td><td>Windows 11</td><td>23H2</td><td>开发与演示环境</td></tr>
+<tr><td>后端运行时</td><td>Python</td><td>3.13</td><td>Flask 应用宿主</td></tr>
+<tr><td>后端框架</td><td>Flask + Flask-SQLAlchemy</td><td>3.x / 2.0</td><td>HTTP 服务、ORM</td></tr>
+<tr><td>认证</td><td>Flask-JWT-Extended + bcrypt</td><td>4.6</td><td>JWT 签发、密码哈希</td></tr>
+<tr><td>数据库</td><td>MySQL</td><td>8.0</td><td>业务数据持久化，含 RANGE 分区表</td></tr>
+<tr><td>前端运行时</td><td>Node.js</td><td>20.x</td><td>前端构建</td></tr>
+<tr><td>前端框架</td><td>Vue 3 + TypeScript + Vite</td><td>3.5 / 5.4</td><td>SPA 应用</td></tr>
+<tr><td>UI/可视化</td><td>Element Plus + ECharts + 高德 JS API</td><td>2.8 / 5.5</td><td>组件库、图表、地图</td></tr>
+<tr><td>测试</td><td>pytest + pytest-cov</td><td>8.0</td><td>后端单元与接口测试</td></tr>
+<tr><td>开发工具</td><td>VS Code / DataGrip / Git</td><td>—</td><td>编码、SQL、版本管理</td></tr>
+</table>
+<p class="caption">表 1-1　开发环境一览</p>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 2 需求分析 ============ -->
+<h1>2　需求分析</h1>
+
+<h2>2.1　用户需求分析</h2>
+<p>系统服务于九类角色，不同角色对数据可见范围和可执行操作有严格差异：</p>
+<table>
+<tr><th>角色</th><th>核心诉求</th><th>数据范围</th></tr>
+<tr><td>终端客户</td><td>快速下单、实时查看飞行进度、在线支付、账单与评价</td><td>仅本人订单与地址</td></tr>
+<tr><td>商家管理员/调度员</td><td>接单拒单、生成调度方案、规划航线、申报飞行计划</td><td>本商家名下订单与人机场</td></tr>
+<tr><td>机长</td><td>接收本人任务、起飞/送达确认、上报故障</td><td>仅分配给本人的飞行计划</td></tr>
+<tr><td>平台管理员</td><td>商家审核、全局监管、系统参数配置、数据大屏</td><td>全平台数据</td></tr>
+<tr><td>空管监管员</td><td>飞行计划审批、空域监控、违规处置、监管报告</td><td>跨商家全量飞行数据</td></tr>
+<tr><td>运维人员</td><td>设备在线监控、故障维修记录</td><td>设备台账与告警</td></tr>
+<tr><td>财务人员</td><td>账单对账、支付流水核对、开票</td><td>全平台账单流水（只读）</td></tr>
+<tr><td>维修人员</td><td>飞行器保养记录、维修工单</td><td>飞行器维保数据</td></tr>
+</table>
+<p class="caption">表 2-1　角色需求与数据范围</p>
+<p>非功能需求方面：核心查询接口响应时间应控制在 1 秒以内；密码必须哈希存储；手机号、身份证等敏感字段必须密文入库、出参脱敏；关键写操作必须落操作日志；飞行轨迹表需按月分区以支撑海量数据增长。</p>
+
+<h2>2.2　功能需求分析</h2>
+<p>系统功能结构自上而下分为三层：顶层为七大业务域，中层为域内功能点，底层为具体页面与接口。整体结构如图 2-1 所示。</p>
+<div class="arch-box">
+<b>天枢·低空智能运营管控平台</b><br>
+├─ 账号与权限：登录/注册　·　资质认证　·　角色权限树　·　账号冻结　·　操作日志<br>
+├─ 订单中心：在线下单　·　费用试算　·　Mock 支付　·　接单拒单　·　订单跟踪　·　评价投诉<br>
+├─ 调度飞行：调度工作台　·　飞行计划申报　·　空管审批　·　机长任务台　·　起飞/送达确认<br>
+├─ 资源管理：起降场台账　·　飞行器台账　·　人员资质　·　排班管理<br>
+├─ 空域合规：空域一张图　·　电子围栏　·　违规处理<br>
+├─ 监控结算：实时监控　·　轨迹回放　·　运行告警　·　账单　·　支付流水<br>
+└─ 系统支撑：统计报表　·　营销券　·　客服工单　·　系统参数　·　一键演示
+</div>
+<p class="caption">图 2-1　系统功能结构图</p>
+<p>系统采用"客户门户 + 管控台"双布局：客户走 <code>/portal/*</code> 子树，仅含下单、订单、账单、地址、领券、消息等 11 个页面；员工走 <code>/admin/*</code> 外壳，路由由后端下发的权限菜单动态注册，无权限的页面根本不进入路由表，直接敲地址也会被路由守卫重定向到本人首页，从前端层阻断越权访问。</p>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 3 系统设计 ============ -->
+<h1>3　系统设计</h1>
+
+<h2>3.1　数据库设计</h2>
+<p>数据库采用 MySQL 8.0，共设计 35 张业务表，覆盖用户与 RBAC、低空资源、业务流转、空域监控、支撑体系五大域。所有业务表继承统一基类，含 <code>id</code> 主键、<code>created_at</code> 创建时间、<code>updated_at</code> 更新时间（ON UPDATE 自动刷新）、<code>deleted</code> 逻辑删除标记四件套；飞行轨迹表 <code>flight_tracks</code> 按 <code>track_time</code> 做 RANGE 分区，并建立 <code>(plan_id, track_time)</code>、<code>(aircraft_id, track_time)</code> 复合索引以支撑按计划回放与按机型统计。</p>
+<p>以下选取四张核心表展示结构。</p>
+
+<table>
+<tr><th>字段名</th><th>类型</th><th>允许空</th><th>说明</th></tr>
+<tr><td>id</td><td>BIGINT UNSIGNED</td><td>否</td><td>主键，自增</td></tr>
+<tr><td>username</td><td>VARCHAR(50)</td><td>否</td><td>登录账号，唯一</td></tr>
+<tr><td>password_hash</td><td>VARCHAR(100)</td><td>否</td><td>BCrypt 哈希（cost=10）</td></tr>
+<tr><td>user_type</td><td>TINYINT</td><td>否</td><td>1 个人客户 / 2 企业客户 / 3 商家员工 / 4 平台管理员 / 5 空管 / 6 运维</td></tr>
+<tr><td>real_name</td><td>VARCHAR(50)</td><td>是</td><td>真实姓名</td></tr>
+<tr><td>phone_cipher</td><td>VARCHAR(100)</td><td>否</td><td>手机号 AES 密文</td></tr>
+<tr><td>phone_digest</td><td>CHAR(64)</td><td>否</td><td>手机号 HMAC-SHA256 摘要，唯一索引用于检索</td></tr>
+<tr><td>email_cipher</td><td>VARCHAR(100)</td><td>是</td><td>邮箱 AES 密文</td></tr>
+<tr><td>id_card_cipher</td><td>VARCHAR(100)</td><td>是</td><td>身份证 AES 密文</td></tr>
+<tr><td>realname_status</td><td>TINYINT</td><td>否</td><td>0 未认证 / 1 审核中 / 2 已认证 / 3 驳回</td></tr>
+<tr><td>merchant_id</td><td>BIGINT UNSIGNED</td><td>是</td><td>所属商家外键</td></tr>
+<tr><td>status</td><td>TINYINT</td><td>否</td><td>1 正常 / 2 冻结 / 3 注销</td></tr>
+<tr><td>last_login_at / last_login_ip</td><td>DATETIME / VARCHAR(45)</td><td>是</td><td>最近登录痕迹</td></tr>
+<tr><td>created_at / updated_at / deleted</td><td>—</td><td>否</td><td>审计四件套（基类继承）</td></tr>
+</table>
+<p class="caption">表 3-1　用户信息表（users）</p>
+
+<table>
+<tr><th>字段名</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>BIGINT UNSIGNED</td><td>主键</td></tr>
+<tr><td>order_no</td><td>VARCHAR(32)</td><td>订单编号，唯一</td></tr>
+<tr><td>customer_id / merchant_id</td><td>BIGINT UNSIGNED</td><td>客户、商家外键</td></tr>
+<tr><td>order_type</td><td>TINYINT</td><td>1 普通 / 2 应急 / 3 预留</td></tr>
+<tr><td>status</td><td>TINYINT</td><td>0 待支付→1 待接单→2 待调度→3 待审批→4 待起飞→5 飞行中→6 已送达→7 已完成 / 8 已取消</td></tr>
+<tr><td>sender_name / sender_phone(_cipher/_digest)</td><td>VARCHAR</td><td>寄件人姓名与加密手机号</td></tr>
+<tr><td>receiver_name / receiver_phone(_cipher/_digest)</td><td>VARCHAR</td><td>收件人姓名与加密手机号</td></tr>
+<tr><td>sender_address / lng / lat</td><td>VARCHAR / DECIMAL</td><td>寄件地址与坐标（GCJ-02）</td></tr>
+<tr><td>receiver_address / lng / lat</td><td>VARCHAR / DECIMAL</td><td>收件地址与坐标</td></tr>
+<tr><td>goods_type / weight_kg / expect_at</td><td>—</td><td>物品类型、重量、预约时间</td></tr>
+<tr><td>base_fee / airspace_fee / urgent_fee / discount_amount / total_amount / pay_amount</td><td>DECIMAL(10,2)</td><td>费用快照（下单时冻结，后续改价不影响历史单）</td></tr>
+<tr><td>paid / paid_at / delivered_at / finished_at</td><td>—</td><td>支付标记与关键时间戳</td></tr>
+<tr><td>cancel_reason / remark</td><td>VARCHAR(255)</td><td>取消原因、备注</td></tr>
+</table>
+<p class="caption">表 3-2　订单表（orders）</p>
+
+<table>
+<tr><th>字段名</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>BIGINT UNSIGNED</td><td>主键</td></tr>
+<tr><td>plan_no</td><td>VARCHAR(32)</td><td>飞行计划编号</td></tr>
+<tr><td>order_id</td><td>BIGINT UNSIGNED</td><td>绑定订单外键（与订单 1:1）</td></tr>
+<tr><td>aircraft_id / pilot_id / vertiport_id</td><td>BIGINT UNSIGNED</td><td>分配飞行器、机长、起降场</td></tr>
+<tr><td>status</td><td>TINYINT</td><td>0 待申报→1 待审批→2 已批准待执行→3 执行中→4 已完成 / 5 已驳回 / 6 已取消</td></tr>
+<tr><td>route_geom</td><td>JSON / TEXT</td><td>航线折线坐标串</td></tr>
+<tr><td>depart_at / arrive_at</td><td>DATETIME</td><td>计划起降时间</td></tr>
+<tr><td>approve_by / approve_at / reject_reason</td><td>—</td><td>审批留痕</td></tr>
+</table>
+<p class="caption">表 3-3　飞行计划表（flight_plans）</p>
+
+<table>
+<tr><th>字段名</th><th>类型</th><th>说明</th></tr>
+<tr><td>id</td><td>BIGINT UNSIGNED</td><td>主键</td></tr>
+<tr><td>role_code / role_name</td><td>VARCHAR</td><td>角色编码与名称</td></tr>
+<tr><td>permissions</td><td>多对多</td><td>通过 role_permission 中间表关联 permission 表</td></tr>
+</table>
+<p class="caption">表 3-4　角色表（roles，配合 user_role、role_permission、permissions 三表实现 RBAC）</p>
+
+<h2>3.2　系统架构设计</h2>
+<p>系统采用前后端分离的模块化单体架构，自上而下分为四层：</p>
+<div class="arch-box">
+<b>接入层（PC Web）</b>：Vue 3 + TypeScript + Vite + Element Plus，含客户门户与管控台两套布局；高德 JS API 负责地图渲染与轨迹绘制，ECharts 负责运营大屏；Pinia 管理登录态，Vue-Router 按权限动态注册路由。<br><br>
+<b>应用层（Flask）</b>：按领域拆分为认证、订单、调度、空域、监控、资源、结算、统计、系统等 13 个蓝图；JWT 装饰器做接口鉴权，统一响应信封 <code>{code, message, data}</code>，全局异常处理器捕获 <code>ApiError</code>；APScheduler 驱动后台飞行仿真器与定时任务（资质到期、轨迹分区、券下架）。<br><br>
+<b>数据层</b>：MySQL 8.0 业务库；SQLAlchemy ORM 映射 35 张表；飞行轨迹按月 RANGE 分区。<br><br>
+<b>外部适配层</b>：UTM 空管、气象、支付、GCS 地面站全部以 Mock adapter 形式接入，将来替换真实接口只改动 adapter。
+</div>
+<p class="caption">图 3-1　系统四层架构图</p>
+
+<p>后端文件组织结构如下：</p>
+<pre>backend/
+├── app/
+│   ├── __init__.py            # 应用工厂：初始化扩展、注册蓝图、启动仿真器
+│   ├── config.py              # 全局配置（读 .env）
+│   ├── extensions.py          # db/jwt/cors/compress 实例
+│   ├── models/                # SQLAlchemy 实体（base/user/order/dispatch/... 共 13 个文件）
+│   ├── blueprints/            # 13 个领域蓝图（控制层）
+│   ├── services/              # 业务服务层（auth/order/dispatch/... 共 14 个文件）
+│   ├── common/                # 响应封装、异常、JWT 装饰器、加解密工具
+│   └── sql/                   # DDL 与迁移脚本
+└── tests/                     # pytest 测试套件</pre>
+<p>前端组织结构：</p>
+<pre>frontend/src/
+├── main.ts / App.vue
+├── router/index.ts            # 静态路由 + 按权限动态 addRoute
+├── stores/                    # Pinia（user 登录态与权限）
+├── api/                       # Axios 统一封装与拦截器
+├── layouts/                   # AdminLayout 管控台外壳 / PortalLayout 客户门户外壳
+├── views/
+│   ├── login/                 # 登录页
+│   ├── portal/                # 客户门户 11 个页面
+│   ├── admin/                 # 管控台（order/dispatch/airspace/resource/monitor/settlement/system/...）
+│   └── screen/MonitorScreen.vue  # 独立全屏监控大屏
+└── constants/menu.ts          # 权限点→落地页映射</pre>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 4 系统功能实现 ============ -->
+<h1>4　系统功能实现</h1>
+
+<h2>4.1　登录与 RBAC 权限模块</h2>
+<p>登录页采用深蓝夜空视觉风格，提供账号、密码输入框与演示账号提示。用户提交后，后端在服务层校验用户名与 BCrypt 密码，账号不存在与密码错误返回同一句提示，避免账号枚举攻击；账号处于冻结或注销状态时拒绝登录。登录成功后，后端签发一对 JWT：访问令牌按设备类型区分有效期（PC 端 8 小时、移动端预留 2 小时），刷新令牌 7 天；同时返回当前用户信息与按角色聚合的权限菜单树。</p>
+<p>前端拿到菜单树后动态注册路由：菜单型权限（perm_type=1）生成侧边栏，动作型权限平铺到 <code>perms</code> 数组；页面按钮通过 <code>v-if="hasPerm('order:list')"</code> 控制显隐。路由守卫在每次跳转时校验目标路由所需权限，无权限则跳 403；客户角色菜单为空，直接进入客户门户外壳。图 4-1 为登录界面。</p>
+<p class="caption">图 4-1　用户登录页面</p>
+<p>系统共内置 9 类角色、48 个权限点、8 个演示账号（密码统一为 Admin@123），覆盖平台管理员、商家、客户、机长、空管、运维、财务、维修等岗位。</p>
+
+<h2>4.2　订单全流程与调度状态机模块</h2>
+<p>客户在门户通过高德地图点选寄件点与收件点，选择物品类型、重量与时效后，后端根据起降场距离、空域费、加急系数实时试算费用并展示费用明细。提交订单后进入"待支付"，Mock 支付成功后变为"待接单"。商家在调度工作台看到待调度订单池，可自动匹配飞行器与机长或手动调整；方案保存后订单进入"待审批"，同时生成 1:1 绑定的飞行计划。</p>
+<p>空管在审批台看到待审批队列，叠加禁飞区图层后通过或驳回；驳回时订单回退"待调度"允许商家调整重报。审批通过后下发给对应机长，机长在任务台确认起飞，订单进入"飞行中"。后台仿真器沿航线每秒插值推算坐标与电量并批量写入 <code>flight_tracks</code>，前端每 2 秒轮询刷新地图上的飞行器位置。到达收件点后机长确认送达，订单变为"已送达"，客户确认收货后归档为"已完成"。任何环节拒单、违规或应急终止都触发 Mock 退款并写入取消原因。整个过程由调度服务层统一驱动，业务端不能直接修改状态字段，只能调用动作接口，非法跳转被单元测试守护。</p>
+<p class="caption">图 4-2　调度工作台与飞行计划审批界面</p>
+
+<h2>4.3　低空态势实时监控与数据大屏模块</h2>
+<p>监控中心在高德地图上叠加：当前飞行中的飞行器图标、计划航线折线、禁飞区/限飞区多边形、电子围栏边界。当仿真器注入偏航、闯禁飞区、低电量、失联等场景时，系统实时计算航迹与围栏的空间关系，触发对应级别的运行告警，告警在右上角滚动列表与顶部铃铛中同步提示；严重违规时弹窗强提醒。轨迹回放页面可选择历史飞行计划，按时间轴拖动回放飞行器历史位置。</p>
+<p>独立的运营大屏（<code>/screen</code>）采用深蓝黑配色，顶部展示今日订单量、在飞架次、告警数、完成率等 KPI 卡片，中部为温州地图实时态势，底部为订单趋势、空域使用占比等 ECharts 图表，用于演示与汇报。图 4-3 为低空态势监控大屏。</p>
+<p class="caption">图 4-3　低空态势监控大屏</p>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 5 核心代码 ============ -->
+<h1>5　核心代码</h1>
+
+<h2>5.1　核心配置</h2>
+<p>全局配置全部从 <code>.env</code> 环境变量读取，代码中不写死密码与密钥。数据库连接池开启 <code>pool_pre_ping</code> 防止 MySQL 8 小时断连，连接 1 小时回收一次；JWT 按设备区分有效期；上传目录放在 <code>instance/uploads</code> 而非 static 下，避免上传件被同源直读；全站请求体限制 10MB。</p>
+<pre>class Config:
+    DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+    DB_PORT = int(os.getenv("DB_PORT", "3306"))
+    DB_USER = os.getenv("DB_USER", "root")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DB_NAME = os.getenv("DB_NAME", "tianshu_utms")
+
+    SQLALCHEMY_DATABASE_URI = (
+        f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}"
+        f"/{DB_NAME}?charset=utf8mb4"
+    )
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 3600,
+        "pool_size": 10,
+    }
+
+    JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "tianshu-dev")
+    JWT_ACCESS_TOKEN_EXPIRES_HOURS_PC = 8
+    JWT_ACCESS_TOKEN_EXPIRES_HOURS_MOBILE = 2
+
+    AES_SECRET_KEY = os.getenv("AES_SECRET_KEY", "tianshu-aes-16ch")
+    PHONE_HMAC_KEY = os.getenv("PHONE_HMAC_KEY", "tianshu-dev-seed")
+    MAX_CONTENT_LENGTH = 10 * 1024 * 1024
+    JSON_AS_ASCII = False</pre>
+<p class="caption">代码 5-1　全局配置（config.py）</p>
+
+<h2>5.2　实体类代码</h2>
+<p>所有业务实体继承 <code>BaseModel</code>，自动获得主键、创建时间、更新时间与逻辑删除四件套。用户实体中，敏感字段拆为"密文列 + HMAC 摘要列"两列：密文列用于展示时解密，摘要列用于等值检索（密文每次加密 nonce 不同，无法做 LIKE）；对外序列化统一走 <code>to_login_dict()</code>，保证密码哈希与密文永远不出现在接口出参中。</p>
+<pre>class TimestampMixin:
+    created_at = db.Column(DateTime, nullable=False,
+                          server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = db.Column(DateTime, nullable=False,
+        server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+
+class SoftDeleteMixin:
+    deleted = db.Column(TINYINT, nullable=False, default=0, server_default="0")
+
+class BaseModel(db.Model, TimestampMixin, SoftDeleteMixin):
+    __abstract__ = True
+    id = db.Column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+
+
+class User(BaseModel):
+    __tablename__ = "users"
+    username = db.Column(String(50), nullable=False, unique=True)
+    password_hash = db.Column(String(100), nullable=False)
+    user_type = db.Column(TINYINT, nullable=False)
+    phone_cipher = db.Column(String(100), nullable=False)
+    phone_digest = db.Column(CHAR(64), nullable=False, unique=True)
+    email_cipher = db.Column(String(100))
+    id_card_cipher = db.Column(String(100))
+    status = db.Column(TINYINT, nullable=False, default=1)
+    merchant_id = db.Column(BIGINT(unsigned=True), db.ForeignKey("merchants.id"))
+
+    roles = db.relationship("Role", secondary=user_role, lazy="selectin", viewonly=True)
+
+    def check_password(self, raw: str) -> bool:
+        try:
+            return bcrypt.checkpw(raw.encode(), self.password_hash.encode())
+        except (ValueError, TypeError):
+            return False
+
+    def to_login_dict(self) -> dict:
+        # 安全出参：不含任何密文与哈希
+        return {"id": self.id, "username": self.username,
+                "userType": self.user_type, "realName": self.real_name,
+                "roles": self.role_codes, "perms": self.perm_codes}</pre>
+<p class="caption">代码 5-2　BaseModel 与 User 实体（models/base.py、models/user.py）</p>
+<p>订单实体将寄收件人手机号同样拆为密文列与摘要列，并在下单时把各项费用冻结为快照，后续商家改价不会影响历史订单金额，保证结算可追溯。</p>
+
+<h2>5.3　数据持久层代码</h2>
+<p>持久层基于 SQLAlchemy ORM，业务查询统一带 <code>deleted=0</code> 条件做逻辑删除过滤；按权限点强制商家行级隔离（如订单列表自动追加 <code>merchant_id == 当前商家</code>），机长任务只查 <code>pilot_id == 当前用户</code>。典型查询如下：</p>
+<pre>def query_orders_for_merchant(user: User, status=None):
+    q = Order.query.filter_by(deleted=0, merchant_id=user.merchant_id)
+    if status is not None:
+        q = q.filter(Order.status == status)
+    return q.order_by(Order.created_at.desc()).paginate(page=1, per_page=20)
+
+def query_my_missions(user: User):
+    return FlightPlan.query.filter_by(
+        deleted=0, pilot_id=user.id,
+        status__in=[2, 3]   # 已批准待执行 / 执行中
+    ).order_by(FlightPlan.depart_at.asc()).all()</pre>
+<p class="caption">代码 5-3　按权限隔离的持久层查询</p>
+<p>轨迹写入采用批量 <code>bulk_insert_mappings</code>，仿真器每帧把多条轨迹点一次性写入对应月份分区，避免逐行 INSERT 的网络往返。</p>
+
+<h2>5.4　服务层代码</h2>
+<p>视图层只负责收发参数，业务规则全部收敛在服务层。以登录服务为例：统一参数校验、账号状态判断、JWT 签发、菜单树组装都在 <code>auth_service.login()</code> 中完成；签发逻辑单独抽为 <code>issue_tokens()</code>，让登录与刷新令牌接口复用同一套 claims 与有效期口径。</p>
+<pre>def login(username, password, device_type, ip):
+    if not username or not password:
+        raise ApiError(BizCode.PARAM_ERROR, "请输入账号和密码")
+
+    user = User.query.filter_by(username=username.strip(), deleted=0).first()
+    # 账号不存在与密码错误给同一句提示，不泄露账号是否存在
+    if user is None or not user.check_password(password):
+        raise ApiError(BizCode.UNAUTHORIZED, "账号或密码错误", 401)
+
+    if user.status == 2:
+        raise ApiError(BizCode.FORBIDDEN,
+                       f"账号已冻结：{user.frozen_reason or ''}", 403)
+    if user.status == 3:
+        raise ApiError(BizCode.FORBIDDEN, "账号已注销", 403)
+
+    user.last_login_at = datetime.now()
+    user.last_login_ip = ip
+    db.session.commit()
+
+    data = issue_tokens(user, device_type)
+    data.update({"userInfo": user.to_login_dict(),
+                 "menus": build_menu_tree(user)})
+    return data
+
+
+def issue_tokens(user, device_type):
+    hours = 2 if device_type.upper() == "MOBILE" else 8
+    claims = {"user_type": user.user_type,
+              "roles": user.role_codes, "device": device_type.upper()}
+    return {
+        "token": create_access_token(identity=str(user.id),
+                                     additional_claims=claims,
+                                     expires_delta=timedelta(hours=hours)),
+        "refreshToken": create_refresh_token(identity=str(user.id),
+                                             additional_claims=claims,
+                                             expires_delta=timedelta(days=7)),
+    }</pre>
+<p class="caption">代码 5-4　登录服务（services/auth_service.py）</p>
+
+<h2>5.5　控制层代码</h2>
+<p>控制层以 Flask Blueprint 组织，每个蓝图对应一个业务域，统一挂在 <code>/api</code> 前缀下。需要鉴权的接口加 <code>@jwt_required()</code>，当前登录用户由 <code>current_user()</code> 装饰器注入；所有返回走 <code>success(data, msg)</code> 统一信封，异常通过抛出 <code>ApiError</code> 由全局处理器转换为标准错误 JSON。</p>
+<pre>bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+@bp.post("/login")
+def login():
+    body = request.get_json(silent=True) or {}
+    data = auth_service.login(
+        username=body.get("username", ""),
+        password=body.get("password", ""),
+        device_type=request.headers.get("Device-Type", "PC"),
+        ip=request.remote_addr or "",
+    )
+    return success(data, "登录成功")
+
+@bp.get("/me")
+@jwt_required()
+def me():
+    user = current_user()
+    return success({"userInfo": user.to_login_dict()})
+
+@bp.get("/menus")
+@jwt_required()
+def menus():
+    user = current_user()
+    return success(auth_service.build_menu_tree(user))
+
+@bp.post("/refresh")
+@jwt_required(refresh=True)
+def refresh():
+    user = current_user()
+    if user.status != 1:
+        raise ApiError(BizCode.FORBIDDEN, "账号状态异常", 403)
+    return success(auth_service.issue_tokens(user, "PC"), "登录态已续期")</pre>
+<p class="caption">代码 5-5　认证蓝图（blueprints/auth.py）</p>
+<p>此外，应用工厂注册了 <code>after_request</code> 钩子，对所有 <code>POST/PUT/DELETE</code> 写操作自动落 <code>operation_log</code> 表，记录操作人、模块、动作、URL、IP、耗时与返回状态，形成完整审计链。</p>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 6 系统测试 ============ -->
+<h1>6　系统测试</h1>
+
+<h2>6.1　功能测试</h2>
+<p>后端采用 pytest 编写单元与接口测试，覆盖认证、订单状态机、调度流转、空域合规、结算、权限隔离等核心业务，共 497 个测试用例全部通过。测试使用独立库 <code>tianshu_test</code>，每次运行前自动重建表结构，绝不污染演示库。</p>
+<p>在全链路手工回归中，使用 8 个演示账号逐角色登录，对约 229 条前端路由进行点验：客户账号访问管控台地址被重定向回门户；商家账号只能看到本商家订单；机长只能看到本人任务；空管审批台无调度按钮；越权直接访问受限接口返回 403。订单从待支付到已完成的九条状态路径、审批驳回回退、拒单 Mock 退款、偏航/闯区告警等异常分支均逐条验证通过。前端通过 <code>vue-tsc --noEmit</code> 类型检查与 <code>vite build</code> 生产构建，无类型错误与构建错误。</p>
+
+<h2>6.2　性能测试</h2>
+<p>数据库连接池配置为 <code>pool_size=10</code>、<code>pool_pre_ping=True</code>、<code>pool_recycle=3600</code>，在开发环境连续请求下无连接泄漏与超时。轨迹表按 <code>track_time</code> 做 RANGE 分区，并在 <code>(plan_id, track_time)</code>、<code>(aircraft_id, track_time)</code> 上建立复合索引；仿真器批量写入轨迹时采用 <code>bulk_insert_mappings</code>，单批 2000 帧写入在秒级完成。</p>
+<p>核心列表接口（订单列表、飞行计划列表、监控实时查询）在演示数据量下响应时间均在百毫秒级，满足"核心查询 ≤1 秒"的非功能目标。前端轮询间隔固定为 2 秒，在单角色演示场景下服务端 CPU 占用平稳。后续如需支撑并发用户大幅提升，可引入 Redis 缓存热点菜单与空域数据、用 WebSocket 替代轮询，相关方向已在展望中规划。</p>
+
+<div style="page-break-after: always;"></div>
+
+<!-- ============ 7 结束语 ============ -->
+<h1>7　结束语</h1>
+
+<h2>7.1　总结</h2>
+<p>本项目从需求分析出发，完成了天枢低空运营管控平台的设计、开发与测试全流程。设计过程中遇到的主要问题与解决方法如下：</p>
+<p><b>（1）双轨状态一致性问题。</b>订单与飞行计划存在强绑定，若任由各端直接修改状态字段，极易出现"订单已起飞但计划仍待审批"这类不一致。解决方法是把所有状态变迁收敛到调度服务层的动作接口（接单、提交审批、审批通过、起飞、送达等），业务端不能直接写字段，并为每条合法路径与非法跳转编写单元测试守护。</p>
+<p><b>（2）敏感信息存储与检索的矛盾。</b>手机号加密后无法直接做等值查询和尾号检索。解决方法是"密文列 + HMAC 摘要列"双列设计：密文列用于解密展示，整号摘要列建唯一索引做查重与检索，尾号摘要列支持后 4 位模糊查找；出参统一走脱敏序列化方法。</p>
+<p><b>（3）海量轨迹存储。</b>飞行器每秒上报坐标，长期运行后轨迹表会急剧膨胀。解决方法是按时间 RANGE 分区 + 复合索引，并通过批量写入降低往返开销；回放时按时间范围裁剪分区，只扫描目标月份。</p>
+<p><b>（4）多角色越权访问。</b>初期曾出现"前端隐藏按钮但直接敲地址仍能打开页面"的问题。解决方法是路由由后端权限菜单动态注册，无权限的页面根本不进入路由表；接口层再做一次服务端鉴权与商家行级数据隔离，形成前端路由、接口装饰器、SQL 查询三层防护。</p>
+<p>通过本项目，我完整经历了一个企业级系统从需求建模、数据库设计、前后端分离开发到测试的全过程，深入实践了 RBAC 权限模型、状态机设计、数据分区、加解密与审计日志等工程手段，也体会到在有限工期内对技术方案做务实取舍的重要性。</p>
+
+<h2>7.2　展望</h2>
+<p>本期交付以 PC Web 端为核心，受工期所限，后续可从以下方向继续演进：</p>
+<ul>
+<li><b>实时推送升级</b>：当前采用后台线程仿真器 + 前端 2 秒轮询，未来可引入 Flask-SocketIO 主动推送航迹与告警消息，降低轮询开销。</li>
+<li><b>缓存与会话</b>：引入 Redis 缓存热点空域数据与菜单，并用黑名单机制实现 JWT 主动登出；同时落地连续登录失败次数锁定策略。</li>
+<li><b>移动端</b>：使用 UniApp 复刻机长任务、客户下单等核心页面，覆盖现场作业场景。</li>
+<li><b>部署工程化</b>：用 Docker Compose 编排 MySQL、后端、前端与 Nginx，实现一键部署；引入 JMeter 做系统化性能压测。</li>
+<li><b>外部系统对接</b>：将 Mock 的 UTM 空管、气象、支付 adapter 替换为真实接口，接入真实无人机 GCS。</li>
+</ul>
+
+<p style="text-indent:0; margin-top:40px; text-align:right;">—— 报告完 ——</p>
+
+</body>
+</html>
