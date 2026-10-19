@@ -16,7 +16,7 @@ from .settlement import bp as settlement_bp
 from .system import bp as system_bp
 from .demo import bp as demo_bp
 from .simulator import bp as simulator_bp
-from .aux import bp as aux_bp
+from .auxiliary import bp as aux_bp
 from .stats import bp as stats_bp
 
 # 领域蓝图按交付顺序追加
