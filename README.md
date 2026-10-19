@@ -26,6 +26,7 @@
 ## 目录
 
 - [项目简介](#项目简介)
+- [界面预览](#界面预览)
 - [功能一览](#功能一览)
 - [角色与权限](#角色与权限)
 - [技术栈](#技术栈)
@@ -66,6 +67,32 @@
 
 ---
 
+## 界面预览
+
+**客户门户** —— 下单、追踪、账单
+
+| 首页（进行中订单 + 服务说明） | 我要下单（地图选点 + 费用试算） |
+|---|---|
+| ![客户门户首页](docs/images/portal-home.png) | ![下单页](docs/images/portal-order-create.png) |
+
+| 我的订单（按状态筛选 + 配送路线） |
+|---|
+| ![我的订单](docs/images/portal-orders.png) |
+
+**商家 / 监管端** —— 驾驶舱、调度、订单、报表
+
+| 运行驾驶舱（今日执飞 / 在飞架次 / 近 7 日趋势） | 调度工作台（订单池 + 空域态势 + 方案校验） |
+|---|---|
+| ![运行驾驶舱](docs/images/admin-dashboard.png) | ![调度工作台](docs/images/admin-dispatch.png) |
+
+| 订单管理（全状态筛选 + 导出） | 统计报表（通过率 / 实付 / 处罚率 / 趋势） |
+|---|---|
+| ![订单管理](docs/images/admin-orders.png) | ![统计报表](docs/images/admin-report.png) |
+
+> 截图取自本地演示数据集（含 Mock 造数），非生产数据。
+
+---
+
 ## 功能一览
 
 ### 客户门户（`/portal`）
@@ -84,16 +111,21 @@
 
 ### 商家运营端（`/admin`）
 
+侧边栏按领域分为 11 个模块，菜单与接口权限均由角色权限点控制，无权限的菜单不会渲染。
+
 | 模块 | 说明 |
 |---|---|
-| 运行驾驶舱 | 本商家订单量、执飞架次、收入、机队状态概览 |
-| 订单管理 | 接单 / 拒单、订单详情、超时提醒（未接单 15 分钟） |
-| 调度飞行 | 调度看板、调度方案编制、机长与飞行器指派、任务下发与执行 |
-| 空域合规 | 飞行计划申报、审批状态跟踪、空域地图、禁飞区围栏、违规记录 |
-| 资源管理 | 起降场站、飞行器档案、人员档案、资质台账、排班管理 |
-| 实时监控 | 实时航迹、历史轨迹回放、机载设备状态、告警中心 |
-| 结算对账 | 结算单、支付流水（平台抽佣后结算） |
-| 营销 / 客服 | 优惠券配置、工单与投诉处理 |
+| 监控中心 | 实时监控（飞行器位置 / 电量 / 告警）、轨迹回放、违规处置、应急事件 |
+| 运行驾驶舱 | 今日执飞、在飞架次、机队告警、机队总数；近 7 日订单量与实付金额趋势、机队状态分布 |
+| 统计报表 | 综合运营 / 商家经营 / 空域合规三张报表，支持按日按月与自定义区间，可导出 CSV |
+| 订单管理 | 待接单 / 待调度 / 待审批 / 待起飞 / 飞行中 / 已送达 / 全部，多条件组合筛选 |
+| 调度飞行 | 调度工作台（待调度订单池 + 航线与空域态势图 + 调度方案校验）、飞行计划、我的任务 |
+| 空域合规 | 飞行计划审批、空域地图、空域台账、电子围栏、违规记录 |
+| 低空资源 | 起降场站、飞行器档案、人员档案、资质台账、排班 |
+| 营销中心 | 优惠券模板配置、发放与核销 |
+| 客服中心 | 工单、投诉与评价处理 |
+| 结算管理 | 结算单、支付流水（平台抽佣后结算） |
+| 系统管理 | 用户、角色与权限分配、参数配置 |
 
 ### 平台监管端
 
@@ -198,45 +230,46 @@
 
 ```
 tianshu-low-altitude-platform/
-├── 代码/
-│   ├── backend/                        # Flask 后端
-│   │   ├── run.py                      # 启动入口（127.0.0.1:5000）
-│   │   ├── requirements.txt
-│   │   ├── .env.example                # 环境变量模板
-│   │   ├── pytest.ini
-│   │   ├── app/
-│   │   │   ├── __init__.py             # 应用工厂 create_app
-│   │   │   ├── config.py / extensions.py
-│   │   │   ├── blueprints/             # 12 个领域蓝图
-│   │   │   │   ├── auth  orders  dispatch  airspace  monitor
-│   │   │   │   ├── resource  settlement  stats  system  demo
-│   │   │   │   └── simulator  health
-│   │   │   ├── services/               # 业务逻辑
-│   │   │   │   ├── order_service  dispatch_service  pricing_service
-│   │   │   │   ├── compliance_monitor  flight_simulator  track_service
-│   │   │   │   ├── scheduler  stats_service  coupon_service
-│   │   │   │   └── auth_service  geo  notify  order_import
-│   │   │   ├── models/                 # SQLAlchemy 模型（11 个领域文件）
-│   │   │   ├── common/                 # 响应信封 / 异常 / 权限装饰器 / 加密
-│   │   │   ├── adapters/               # 外部服务适配层（支付等）
-│   │   │   └── docs/                   # 接口权限映射文档
-│   │   ├── sql/
-│   │   │   ├── tianshu-ddl-v1.sql      # 建库单一真源（35 表 + 种子数据）
-│   │   │   └── migrations/             # 幂等增量迁移
-│   │   ├── seed/                       # 演示数据生成（Faker）
-│   │   ├── scripts/                    # 自检脚本
-│   │   └── tests/                      # 18 个 pytest 用例文件
-│   └── frontend/                       # Vue 3 + TS 前端
-│       ├── vite.config.ts              # 5173，/api → 5000
-│       └── src/
-│           ├── api/                    # 统一请求封装
-│           ├── views/
-│           │   ├── portal/             # 客户门户
-│           │   ├── admin/              # 商家/监管端（按领域分目录）
-│           │   ├── screen/             # 监控大屏
-│           │   ├── login/  errors/
-│           ├── router/                 # 路由 + 权限守卫
-│           ├── stores/  layouts/  composables/  constants/  utils/
+├── backend/                            # Flask 后端
+│   ├── run.py                          # 启动入口（127.0.0.1:5000）
+│   ├── requirements.txt
+│   ├── .env.example                    # 环境变量模板（复制为 .env）
+│   ├── pytest.ini
+│   ├── app/
+│   │   ├── __init__.py                 # 应用工厂 create_app
+│   │   ├── config.py / extensions.py   # 配置与扩展单例
+│   │   ├── blueprints/                 # 领域蓝图
+│   │   │   ├── auth  orders  dispatch  airspace  monitor
+│   │   │   ├── resource  settlement  stats  system  demo
+│   │   │   └── simulator  health
+│   │   ├── services/                   # 业务逻辑
+│   │   │   ├── order_service  dispatch_service  pricing_service
+│   │   │   ├── compliance_monitor  flight_simulator  track_service
+│   │   │   ├── scheduler  stats_service  coupon_service
+│   │   │   └── auth_service  geo  notify  order_import
+│   │   ├── models/                     # SQLAlchemy 模型（按领域拆 11 个文件）
+│   │   ├── common/                     # 响应信封 / 异常 / 权限装饰器 / 加密
+│   │   ├── adapters/                   # 外部服务适配层（支付 / 天气 / 地图）
+│   │   └── docs/                       # 接口权限映射文档
+│   ├── sql/
+│   │   ├── tianshu-ddl-v1.sql          # 建库单一真源（35 表 + 种子数据）
+│   │   └── migrations/                 # 幂等增量迁移
+│   ├── seed/                           # 演示数据生成（Faker）
+│   ├── scripts/                        # 自检脚本
+│   └── tests/                          # 18 个 pytest 用例文件
+├── frontend/                           # Vue 3 + TypeScript 前端
+│   ├── vite.config.ts                  # 5173，/api → 5000
+│   └── src/
+│       ├── api/                        # 按领域拆分的接口封装
+│       ├── views/
+│       │   ├── portal/                 # 客户门户
+│       │   ├── admin/                  # 商家 / 监管端（按领域分目录）
+│       │   ├── screen/                 # 监控大屏
+│       │   └── login/  errors/
+│       ├── layouts/                    # 门户 / 后台布局
+│       ├── router/                     # 路由表 + 权限守卫
+│       ├── stores/  composables/  constants/  utils/
+│       └── styles/                     # 设计 Token（CSS 变量）
 ├── 设计/                               # 设计文档（8 份 HTML + 4 份 Markdown）
 │   ├── 天枢-设计02-领域模型与合流状态机.html
 │   ├── 天枢-设计03-模块映射契约.html
@@ -251,7 +284,7 @@ tianshu-low-altitude-platform/
 │   ├── 代码实现与需求差距分析-20260928.md
 │   ├── 全流程测试记录-20261008.md
 │   └── 天枢平台核心ER图.png
-├── 开关/                               # 一键启动 / 一键关闭脚本
+├── docs/images/                        # README 界面截图
 ├── 天枢·低空智能运营管控平台.pdf        # 项目说明
 └── README.md
 ```
@@ -273,13 +306,13 @@ tianshu-low-altitude-platform/
 
 ```bash
 # 建库 + 35 张表 + 种子数据（9 角色 / 33 权限点 / 5 演示账号 / 3 个温州空域）
-mysql -u root -p < 代码/backend/sql/tianshu-ddl-v1.sql
+mysql -u root -p < backend/sql/tianshu-ddl-v1.sql
 ```
 
 ### 2. 启动后端
 
 ```bash
-cd 代码/backend
+cd backend
 
 # 建虚拟环境（首次）
 python -m venv .venv
@@ -301,7 +334,7 @@ python run.py
 ### 3. 启动前端
 
 ```bash
-cd 代码/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -311,7 +344,7 @@ npm run dev
 ### 4. 造演示数据（可选）
 
 ```bash
-cd 代码/backend
+cd backend
 .venv/Scripts/python.exe seed/generate_mock_data.py --orders 30 --customers 5 --force
 ```
 
@@ -337,7 +370,7 @@ cd 代码/backend
 
 ## 配置说明
 
-全部配置走环境变量，模板见 `代码/backend/.env.example`；`.env` 已在 `.gitignore` 中忽略。
+全部配置走环境变量，模板见 `backend/.env.example`；`.env` 已在 `.gitignore` 中忽略。
 
 | 配置项 | 环境变量 | 说明 |
 |---|---|---|
@@ -500,7 +533,7 @@ MySQL 8.0，共 **35 张表**，按领域分组：
 后端共 **18 个 pytest 用例文件**，覆盖订单、调度、空域、权限、监控、结算等主链路：
 
 ```bash
-cd 代码/backend
+cd backend
 
 # 全量测试（使用独立测试库 tianshu_test，不会影响演示库）
 TEST_DB_RESET=1 python -m pytest
