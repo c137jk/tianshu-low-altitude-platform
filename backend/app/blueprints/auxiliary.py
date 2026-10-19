@@ -371,15 +371,21 @@ def vio_notice(vid):
         raise ApiError(BizCode.CONFLICT, "该违规尚未处罚，暂无通知书")
     ptype = rec["penalty_type"]
     head = f"关于 {rec['merchant_name'] or ''}{rec['aircraft_no'] or ''} 违规行为的处理决定"
+    penalty_text = PENALTY_NAME.get(ptype, "")
+    if ptype == 2 and rec["penalty_amount"]:
+        penalty_text = f"罚款 {float(rec['penalty_amount']):g} 元"
+    elif ptype == 3 and rec["penalty_days"]:
+        penalty_text = f"暂停服务 {int(rec['penalty_days'])} 天"
     body_lines = [
         head,
         f"被处理人：{rec['pilot_name'] or '—'}（{rec['merchant_name'] or '—'}）",
         f"违规事实：{rec['description'] or VIOL_TYPE.get(rec['violation_type'], '违规')}",
-        f"处理决定：{PENALTY_NAME.get(ptype)}",
+        f"处理决定：{penalty_text}",
         f"事由：{rec['penalty_reason'] or '—'}",
         "如对本决定有异议，可在收到通知书之日起 3 个工作日内向平台提出申诉。",
     ]
     return success({
+        "violationNo": rec["violation_no"],
         "noticeNo": rec["violation_no"],
         "pilotName": rec["pilot_name"],
         "merchantName": rec["merchant_name"],
@@ -389,7 +395,7 @@ def vio_notice(vid):
         "violationTime": _row(rec)["violation_time"],
         "lng": _row(rec)["lng"],
         "lat": _row(rec)["lat"],
-        "penaltyName": PENALTY_NAME.get(ptype),
+        "penaltyName": penalty_text,
         "penaltyReason": rec["penalty_reason"],
         "issuerName": "平台运营",
         "issuedAt": _row(rec)["penalty_at"],
@@ -711,6 +717,11 @@ def mt_create():
         "VALUES (:a, :t, :f, :d, :p, :h, NOW(), 1, NOW(), NOW(), 0)",
         a=aircraft_id, t=int(data.get("recordType") or 2), f=data.get("faultType"),
         d=data.get("description"), p=None, h=user.id).lastrowid
+    # 故障维修 / 定期维保把飞行器锁进「维保中」；巡检不影响派单池；
+    # 已经在飞的机（status=2）保持状态机口径，不被台账改写
+    if int(data.get("recordType") or 2) in (1, 2):
+        _q("UPDATE aircraft SET status = 4, updated_at = NOW() "
+           "WHERE id = :a AND status <> 2", a=aircraft_id)
     db.session.commit()
     return success({"id": new_id})
 
@@ -733,6 +744,15 @@ def mt_update(rid):
        "finished_at = CASE WHEN :s2 = 3 THEN NOW() ELSE finished_at END, updated_at = NOW() "
        "WHERE id = :i", s=status, r=data.get("result") or rec["result"], h=user.id,
        s2=status, i=rid)
+    # 该机最后一条在办记录完结后，才把它放回闲置并顺延下次维保时间
+    if status == 3:
+        left = _val("SELECT COUNT(*) FROM maintenance_record WHERE aircraft_id = :a "
+                    "AND deleted = 0 AND status IN (1, 2) AND id <> :r",
+                    a=rec["aircraft_id"], r=rid)
+        if not left:
+            _q("UPDATE aircraft SET status = CASE WHEN status = 4 THEN 1 ELSE status END, "
+               "last_maintain_at = NOW(), next_maintain_at = DATE_ADD(NOW(), INTERVAL 30 DAY), "
+               "updated_at = NOW() WHERE id = :a", a=rec["aircraft_id"])
     db.session.commit()
     return success(None)
 
@@ -772,10 +792,14 @@ def sc_list():
 @bp.post("/schedules")
 @perm_required("resource:schedule")
 def sc_create():
+    """排班入参：{userId, date, shiftType, start, end, area}
+
+    start / end 是 DATETIME 列，前端由 shiftRange() 拼成 'YYYY-MM-DD HH:MM:00' 再发。
+    """
     user = current_user()
     data = _body()
     user_id = int(_need(data, "userId", "值班人"))
-    shift_date = _need(data, "shiftDate", "值班日期")
+    shift_date = str(_need(data, "date", "值班日期"))[:10]
     shift_type = int(data.get("shiftType") or 1)
     if shift_type not in (1, 2, 3, 4):
         raise ApiError(BizCode.PARAM_ERROR, "班次不合法")
@@ -787,15 +811,17 @@ def sc_create():
         raise ApiError(BizCode.FORBIDDEN, "只能给本商家人员排班", 403)
     dup = _val("SELECT COUNT(*) FROM staff_schedule WHERE user_id = :u AND shift_date = :d "
                "AND shift_type = :t AND deleted = 0",
-               u=user_id, d=str(shift_date)[:10], t=shift_type)
+               u=user_id, d=shift_date, t=shift_type)
     if dup:
         raise ApiError(BizCode.CONFLICT, "该人员当天已有同一班次")
+    start = data.get("start") or f"{shift_date} 00:00:00"
+    end = data.get("end") or f"{shift_date} 23:59:00"
     new_id = _q(
         "INSERT INTO staff_schedule (user_id, merchant_id, shift_date, shift_type, start_time, "
         "end_time, responsible_area, bound_aircraft_id, status, created_at, updated_at, deleted) "
         "VALUES (:u, :m, :d, :t, :st, :et, :ra, :ac, 1, NOW(), NOW(), 0)",
-        u=user_id, m=staff["merchant_id"], d=str(shift_date)[:10], t=shift_type,
-        st=data.get("startTime"), et=data.get("endTime"), ra=data.get("responsibleArea"),
+        u=user_id, m=staff["merchant_id"], d=shift_date, t=shift_type,
+        st=start, et=end, ra=data.get("area") or data.get("responsibleArea"),
         ac=data.get("boundAircraftId")).lastrowid
     db.session.commit()
     return success({"id": new_id})
@@ -824,31 +850,60 @@ def sc_del(sid):
 @bp.get("/report")
 @perm_required("report:view")
 def report():
-    """监管口径的汇总报表：审批通过率、违规处罚率、订单与实付。"""
+    """监管/运营报表：订单、飞行、机队、空域、处罚、应急六组指标。
+
+    商家侧按 merchant_scope 收窄（订单、机队、违规、应急），平台侧看全量。
+    """
     user = current_user()
     mid = scope.merchant_scope(user)
-    cond, params = ("AND o.merchant_id = :mid", {"mid": mid}) if mid is not None else ("", {})
+    oc = " AND o.merchant_id = :mid" if mid is not None else ""
+    ac = " AND a.merchant_id = :mid" if mid is not None else ""
+    vc = " AND v.merchant_id = :mid" if mid is not None else ""
+    ec = " AND a2.merchant_id = :mid" if mid is not None else ""
+    kw = {} if mid is None else {"mid": mid}
 
-    def one(sql, **extra):
-        return _val(sql.format(cond=cond), **params, **extra) or 0
+    def q(sql, key="n"):
+        return int(_val(sql, **kw) or 0)
 
-    orders = int(one("SELECT COUNT(*) FROM orders o WHERE o.deleted = 0 {cond}"))
-    paid = float(one("SELECT COALESCE(SUM(o.pay_amount), 0) FROM orders o "
-                     "WHERE o.deleted = 0 AND o.status IN (6, 7) {cond}"))
-    plans = int(_val("SELECT COUNT(*) FROM flight_plan p WHERE p.deleted = 0"))
-    approved = int(_val("SELECT COUNT(*) FROM flight_plan p WHERE p.deleted = 0 AND p.status >= 3"))
-    violations = int(_val("SELECT COUNT(*) FROM violation_record v WHERE v.deleted = 0"))
-    penalized = int(_val("SELECT COUNT(*) FROM violation_record v "
-                         "WHERE v.deleted = 0 AND v.penalty_type > 0"))
+    order_total = q("SELECT COUNT(*) FROM orders o WHERE o.deleted = 0" + oc)
+    order_done = q("SELECT COUNT(*) FROM orders o WHERE o.deleted = 0 AND o.status IN (6, 7)" + oc)
+    order_flying = q("SELECT COUNT(*) FROM orders o WHERE o.deleted = 0 AND o.status = 5" + oc)
+    revenue = float(_val("SELECT COALESCE(SUM(o.pay_amount), 0) FROM orders o "
+                         "WHERE o.deleted = 0 AND o.status IN (6, 7)" + oc, **kw) or 0)
+    plan_total = int(_val("SELECT COUNT(*) FROM flight_plan p WHERE p.deleted = 0") or 0)
+    aircraft_total = q("SELECT COUNT(*) FROM aircraft a WHERE a.deleted = 0" + ac)
+    aircraft_flying = q("SELECT COUNT(*) FROM aircraft a WHERE a.deleted = 0 AND a.status = 2" + ac)
+    fly_minutes = q("SELECT COALESCE(SUM(a.total_flight_min), 0) FROM aircraft a "
+                    "WHERE a.deleted = 0" + ac)
+    vertiport_total = int(_val("SELECT COUNT(*) FROM vertiport v WHERE v.deleted = 0") or 0)
+    airspace_count = int(_val("SELECT COUNT(*) FROM airspace s WHERE s.deleted = 0") or 0)
+    vio_total = q("SELECT COUNT(*) FROM violation_record v WHERE v.deleted = 0" + vc)
+    vio_punished = q("SELECT COUNT(*) FROM violation_record v "
+                     "WHERE v.deleted = 0 AND v.penalty_type > 0" + vc)
+    vio_open = q("SELECT COUNT(*) FROM violation_record v "
+                 "WHERE v.deleted = 0 AND v.status = 1" + vc)
+    emergency_open = q("SELECT COUNT(*) FROM emergency_event e "
+                       "LEFT JOIN aircraft a2 ON a2.id = e.aircraft_id "
+                       "WHERE e.deleted = 0 AND e.status <> 3" + ec)
+
     return success({
-        "orderCount": orders,
-        "paidAmount": round(paid, 2),
-        "planCount": plans,
-        "approvedCount": approved,
-        "approvalRate": round(approved * 100.0 / plans, 1) if plans else 0.0,
-        "violationCount": violations,
-        "penalizedCount": penalized,
-        "penaltyRate": round(penalized * 100.0 / violations, 1) if violations else 0.0,
+        "orderTotal": order_total,
+        "orderDone": order_done,
+        "orderFlying": order_flying,
+        "completionRate": round(order_done * 100.0 / order_total, 1) if order_total else 0.0,
+        "planTotal": plan_total,
+        "aircraftTotal": aircraft_total,
+        "aircraftFlying": aircraft_flying,
+        "flyMinutes": fly_minutes,
+        "vertiportTotal": vertiport_total,
+        "airspaceCount": airspace_count,
+        "revenue": round(revenue, 2),
+        "platformFee": round(revenue * 0.1, 2),
+        "violationTotal": vio_total,
+        "violationPunished": vio_punished,
+        "violationOpen": vio_open,
+        "violationRate": round(vio_punished * 100.0 / vio_total, 1) if vio_total else 0.0,
+        "emergencyOpen": emergency_open,
         "generatedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     })
 

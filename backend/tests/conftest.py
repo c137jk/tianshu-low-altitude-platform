@@ -433,7 +433,7 @@ def _truncate() -> None:
     参考 tests/test_system_users.py 的 clean_tmp_and_role_perms —— 没还的现场会一直
     留在 tianshu_test 里，下一次跑要么假通过，要么莫名 403。
     """
-    _db.session.close_all()
+    _db.session.remove()
     conn = _db.engine.connect()
     try:
         conn.exec_driver_sql("SET SESSION lock_wait_timeout=10")
