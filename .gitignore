@@ -15,3 +15,8 @@ dist/
 ~$*
 .DS_Store
 Thumbs.db
+
+# 本地工具与 IDE 缓存
+.workbuddy/
+.idea/
+.vscode/
