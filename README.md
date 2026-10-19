@@ -75,9 +75,9 @@
 |---|---|
 | ![客户门户首页](docs/images/portal-home.png) | ![下单页](docs/images/portal-order-create.png) |
 
-| 我的订单（按状态筛选 + 配送路线） |
-|---|
-| ![我的订单](docs/images/portal-orders.png) |
+| 我的订单（按状态筛选 + 配送路线） | 领券中心（余量 / 有效期 / 已领状态） |
+|---|---|
+| ![我的订单](docs/images/portal-orders.png) | ![领券中心](docs/images/portal-coupons.png) |
 
 **商家 / 监管端** —— 驾驶舱、调度、订单、报表
 
@@ -88,6 +88,10 @@
 | 订单管理（全状态筛选 + 导出） | 统计报表（通过率 / 实付 / 处罚率 / 趋势） |
 |---|---|
 | ![订单管理](docs/images/admin-orders.png) | ![统计报表](docs/images/admin-report.png) |
+
+| 营销中心（券模板 / 发放 / 核销统计） |
+|---|
+| ![营销中心](docs/images/admin-coupons.png) |
 
 > 截图取自本地演示数据集（含 Mock 造数），非生产数据。
 
@@ -241,7 +245,7 @@ tianshu-low-altitude-platform/
 │   │   ├── blueprints/                 # 领域蓝图
 │   │   │   ├── auth  orders  dispatch  airspace  monitor
 │   │   │   ├── resource  settlement  stats  system  demo
-│   │   │   └── simulator  health
+│   │   │   └── simulator  health  auxiliary（蓝图名 aux）
 │   │   ├── services/                   # 业务逻辑
 │   │   │   ├── order_service  dispatch_service  pricing_service
 │   │   │   ├── compliance_monitor  flight_simulator  track_service
@@ -288,6 +292,11 @@ tianshu-low-altitude-platform/
 ├── 天枢·低空智能运营管控平台.pdf        # 项目说明
 └── README.md
 ```
+
+> **关于 `auxiliary.py` 的文件名**：它的蓝图名仍是 `aux`，接口前缀 `/api/aux`、
+> 端点名（`aux.cp_list` 等）都没有变，但**文件名不能改成 `aux.py`** ——
+> `AUX` 是 DOS 时代的保留设备名，Git for Windows 在 `git add` 时会把 `aux.py`
+> 解析成设备并报 `No such file or directory`，文件永远提交不上去。
 
 ---
 
