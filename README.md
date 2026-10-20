@@ -17,7 +17,7 @@
 ![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)
 ![Element Plus](https://img.shields.io/badge/Element%20Plus-2.8-409EFF?logo=elementplus&logoColor=white)
 
-> **开发方式：Web Coding（AI 辅助编码）**
+> **开发方式：Vibo Coding（AI 辅助编码）**
 > 本项目以「设计文档驱动实现」的方式开发：领域建模、状态机、模块契约、数据库设计均先落成文档（见 [`设计/`](设计/)），
 > 编码环节大量借助 AI 协作完成，每轮迭代后用 pytest 用例与端到端流程做回归验证。
 
@@ -568,7 +568,7 @@ TEST_DB_RESET=1 python -m pytest --cov=app --cov-report=term-missing
 ## 说明与声明
 
 - 本项目用于学习与技术交流，作者保留著作权；
-- 项目采用 **Web Coding（AI 辅助编码）** 方式开发，设计文档与代码均在本仓库内可追溯；
+- 项目采用 **Vibo Coding（AI 辅助编码）** 方式开发，设计文档与代码均在本仓库内可追溯；
 - 地图、支付等第三方服务通过适配器接入，仓库内不含任何密钥；未配置时相关功能自动降级；
 - 演示账号与演示数据仅用于本地功能验证，部署到公网前请务必删除或修改。
 
